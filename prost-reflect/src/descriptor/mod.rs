@@ -11,7 +11,7 @@ pub use self::{
     },
 };
 
-use std::{fmt, sync::Arc};
+use std::{fmt, ops::Deref, ptr, sync::Arc};
 
 use prost::{bytes::Buf, Message};
 use prost_types::FileDescriptorSet;
@@ -28,13 +28,22 @@ pub(crate) const MAP_ENTRY_VALUE_NUMBER: u32 = 2;
 /// cheap to clone.
 #[derive(Clone)]
 pub struct FileDescriptor {
-    inner: Arc<FileDescriptorInner>,
+    inner: FileDescriptorRepr<'static>,
 }
 
 struct FileDescriptorInner {
     raw: FileDescriptorSet,
     type_map: ty::TypeMap,
     services: Box<[ServiceDescriptorInner]>,
+}
+
+#[derive(Clone)]
+enum FileDescriptorRepr<'a> {
+    // Storing an additional u32 inside here doesn't increase the size of this enum but reduces the size of
+    // MessageDescriptor from 24 to 16 bytes.
+    Owned(u32, Arc<FileDescriptorInner>),
+    #[allow(dead_code)]
+    Borrowed(u32, &'a Arc<FileDescriptorInner>),
 }
 
 impl FileDescriptor {
@@ -52,7 +61,7 @@ impl FileDescriptor {
     pub fn new(file_descriptor_set: FileDescriptorSet) -> Result<Self, DescriptorError> {
         let inner = FileDescriptor::from_raw(file_descriptor_set)?;
         Ok(FileDescriptor {
-            inner: Arc::new(inner),
+            inner: FileDescriptorRepr::Owned(0, Arc::new(inner)),
         })
     }
 
@@ -131,6 +140,12 @@ impl FileDescriptor {
     pub fn get_enum_by_name(&self, name: &str) -> Option<EnumDescriptor> {
         EnumDescriptor::try_get_by_name(self, name)
     }
+
+    fn clone_with_data(&self, data: u32) -> Self {
+        let mut file_set = self.clone();
+        *file_set.inner.data_mut() = data;
+        file_set
+    }
 }
 
 impl fmt::Debug for FileDescriptor {
@@ -146,11 +161,38 @@ impl fmt::Debug for FileDescriptor {
 
 impl PartialEq for FileDescriptor {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.inner, &other.inner)
+        ptr::eq(self.inner.deref(), other.inner.deref())
     }
 }
 
 impl Eq for FileDescriptor {}
+
+impl<'a> FileDescriptorRepr<'a> {
+    fn data(&self) -> u32 {
+        match *self {
+            FileDescriptorRepr::Owned(data, _) => data,
+            FileDescriptorRepr::Borrowed(data, _) => data,
+        }
+    }
+
+    fn data_mut(&mut self) -> &mut u32 {
+        match self {
+            FileDescriptorRepr::Owned(ref mut data, _) => data,
+            FileDescriptorRepr::Borrowed(ref mut data, _) => data,
+        }
+    }
+}
+
+impl<'a> Deref for FileDescriptorRepr<'a> {
+    type Target = FileDescriptorInner;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            FileDescriptorRepr::Owned(_, inner) => inner,
+            FileDescriptorRepr::Borrowed(_, inner) => inner,
+        }
+    }
+}
 
 fn make_full_name(namespace: &str, name: &str) -> Box<str> {
     let namespace = namespace.trim_start_matches('.');
@@ -196,6 +238,11 @@ where
     }
 
     Wrapper(i.collect())
+}
+
+#[test]
+fn message_descriptor_size() {
+    assert_eq!(std::mem::size_of::<MessageDescriptor>(), 16);
 }
 
 #[test]

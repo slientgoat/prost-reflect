@@ -37,7 +37,6 @@ pub(super) struct TypeMap {
 #[derive(Clone, PartialEq, Eq)]
 pub struct MessageDescriptor {
     file_set: FileDescriptor,
-    index: u32,
 }
 
 struct MessageDescriptorInner {
@@ -88,7 +87,6 @@ struct FieldDescriptorInner {
 #[derive(Clone, PartialEq, Eq)]
 pub struct ExtensionDescriptor {
     file_set: FileDescriptor,
-    index: u32,
 }
 
 pub struct ExtensionDescriptorInner {
@@ -103,7 +101,6 @@ pub struct ExtensionDescriptorInner {
 #[derive(Clone, PartialEq, Eq)]
 pub struct EnumDescriptor {
     file_set: FileDescriptor,
-    index: u32,
 }
 
 struct EnumDescriptorInner {
@@ -184,12 +181,10 @@ enum ParentKind {
 }
 
 impl MessageDescriptor {
-    pub(in crate::descriptor) fn new(file_set: FileDescriptor, ty: TypeId) -> Self {
+    pub(in crate::descriptor) fn new(mut file_set: FileDescriptor, ty: TypeId) -> Self {
         debug_assert_eq!(ty.0, field_descriptor_proto::Type::Message);
-        MessageDescriptor {
-            file_set,
-            index: ty.1,
-        }
+        *file_set.inner.data_mut() = ty.1;
+        MessageDescriptor { file_set }
     }
 
     pub(in crate::descriptor) fn iter(
@@ -252,7 +247,7 @@ impl MessageDescriptor {
 
     /// Gets a reference to the raw [`DescriptorProto`] wrapped by this [`MessageDescriptor`].
     pub fn descriptor_proto(&self) -> &DescriptorProto {
-        find_message_descriptor_proto(self.parent_file(), self.index)
+        find_message_descriptor_proto(self.parent_file(), self.index())
     }
 
     /// Gets an iterator yielding a [`FieldDescriptor`] for each field defined in this message.
@@ -377,8 +372,7 @@ impl MessageDescriptor {
             .extensions
             .iter()
             .map(move |&index| ExtensionDescriptor {
-                file_set: self.file_set.clone(),
-                index,
+                file_set: self.file_set.clone_with_data(index),
             })
     }
 
@@ -393,7 +387,11 @@ impl MessageDescriptor {
     }
 
     fn message_ty(&self) -> &MessageDescriptorInner {
-        self.file_set.inner.type_map.get_message(self.index)
+        self.file_set.inner.type_map.get_message(self.index())
+    }
+
+    fn index(&self) -> u32 {
+        self.file_set.inner.data()
     }
 }
 
@@ -557,8 +555,7 @@ impl ExtensionDescriptor {
             .type_map
             .extensions()
             .map(move |index| ExtensionDescriptor {
-                file_set: file_set.clone(),
-                index: index.try_into().expect("index too large"),
+                file_set: file_set.clone_with_data(index.try_into().expect("index too large")),
             })
     }
 
@@ -704,7 +701,11 @@ impl ExtensionDescriptor {
     }
 
     fn extension_ty(&self) -> &ExtensionDescriptorInner {
-        self.file_set.inner.type_map.get_extension(self.index)
+        self.file_set.inner.type_map.get_extension(self.index())
+    }
+
+    fn index(&self) -> u32 {
+        self.file_set.inner.data()
     }
 }
 
@@ -792,12 +793,10 @@ impl fmt::Debug for Kind {
 }
 
 impl EnumDescriptor {
-    pub(in crate::descriptor) fn new(file_set: FileDescriptor, ty: TypeId) -> Self {
+    pub(in crate::descriptor) fn new(mut file_set: FileDescriptor, ty: TypeId) -> Self {
         debug_assert_eq!(ty.0, field_descriptor_proto::Type::Enum);
-        EnumDescriptor {
-            file_set,
-            index: ty.1,
-        }
+        *file_set.inner.data_mut() = ty.1;
+        EnumDescriptor { file_set }
     }
 
     pub(in crate::descriptor) fn iter(
@@ -936,7 +935,11 @@ impl EnumDescriptor {
     }
 
     fn enum_ty(&self) -> &EnumDescriptorInner {
-        self.file_set.inner.type_map.get_enum(self.index)
+        self.file_set.inner.type_map.get_enum(self.index())
+    }
+
+    fn index(&self) -> u32 {
+        self.file_set.inner.data()
     }
 }
 

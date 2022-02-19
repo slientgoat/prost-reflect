@@ -13,7 +13,6 @@ use super::{
 #[derive(Clone, PartialEq, Eq)]
 pub struct ServiceDescriptor {
     file_descriptor: FileDescriptor,
-    index: u32,
 }
 
 pub(super) struct ServiceDescriptorInner {
@@ -44,15 +43,14 @@ impl ServiceDescriptor {
     /// Panics if `index` is out-of-bounds.
     pub fn new(file_descriptor: FileDescriptor, index: usize) -> Self {
         debug_assert!(index < file_descriptor.services().len());
-        ServiceDescriptor {
-            file_descriptor,
-            index: index.try_into().expect("index too large"),
-        }
+        let mut file_descriptor = file_descriptor;
+        *file_descriptor.inner.data_mut() = index.try_into().expect("index too large");
+        ServiceDescriptor { file_descriptor }
     }
 
     /// Returns the index of this [`ServiceDescriptor`] within the parent [`FileDescriptor`].
     pub fn index(&self) -> usize {
-        self.index as usize
+        self.file_descriptor.inner.data() as usize
     }
 
     /// Gets a reference to the [`FileDescriptor`] this service is defined in.
@@ -97,7 +95,7 @@ impl ServiceDescriptor {
     }
 
     fn inner(&self) -> &ServiceDescriptorInner {
-        &self.parent_file().inner.services[self.index as usize]
+        &self.parent_file().inner.services[self.index() as usize]
     }
 }
 
