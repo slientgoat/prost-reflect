@@ -11,8 +11,8 @@ use super::{
 
 /// A protobuf service definition.
 #[derive(Clone, PartialEq, Eq)]
-pub struct ServiceDescriptor {
-    file_descriptor: FileDescriptor,
+pub struct ServiceDescriptor<'a> {
+    file_descriptor: FileDescriptor<'a>,
 }
 
 pub(super) struct ServiceDescriptorInner {
@@ -22,8 +22,8 @@ pub(super) struct ServiceDescriptorInner {
 
 /// A method definition for a [`ServiceDescriptor`].
 #[derive(Clone, PartialEq, Eq)]
-pub struct MethodDescriptor {
-    service: ServiceDescriptor,
+pub struct MethodDescriptor<'a> {
+    service: ServiceDescriptor<'a>,
     index: u32,
 }
 
@@ -35,13 +35,13 @@ struct MethodDescriptorInner {
     client_streaming: bool,
 }
 
-impl ServiceDescriptor {
+impl<'a> ServiceDescriptor<'a> {
     /// Create a new [`ServiceDescriptor`] referencing the service at `index` within the given [`FileDescriptor`].
     ///
     /// # Panics
     ///
     /// Panics if `index` is out-of-bounds.
-    pub fn new(file_descriptor: FileDescriptor, index: usize) -> Self {
+    pub fn new(file_descriptor: FileDescriptor<'a>, index: usize) -> Self {
         debug_assert!(index < file_descriptor.services().len());
         let mut file_descriptor = file_descriptor;
         *file_descriptor.inner.data_mut() = index.try_into().expect("index too large");
@@ -94,6 +94,12 @@ impl ServiceDescriptor {
         (0..self.inner().methods.len()).map(move |index| MethodDescriptor::new(self.clone(), index))
     }
 
+    pub fn to_owned(&self) -> ServiceDescriptor<'static> {
+        ServiceDescriptor {
+            file_descriptor: self.file_descriptor.to_owned(),
+        }
+    }
+
     fn inner(&self) -> &ServiceDescriptorInner {
         &self.parent_file().inner.services[self.index() as usize]
     }
@@ -123,7 +129,7 @@ impl ServiceDescriptorInner {
     }
 }
 
-impl fmt::Debug for ServiceDescriptor {
+impl<'a> fmt::Debug for ServiceDescriptor<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ServiceDescriptor")
             .field("name", &self.name())
@@ -134,13 +140,13 @@ impl fmt::Debug for ServiceDescriptor {
     }
 }
 
-impl MethodDescriptor {
+impl<'a> MethodDescriptor<'a> {
     /// Create a new [`MethodDescriptor`] referencing the method at `index` within the [`ServiceDescriptor`].
     ///
     /// # Panics
     ///
     /// Panics if `index` is out-of-bounds.
-    pub fn new(service: ServiceDescriptor, index: usize) -> Self {
+    pub fn new(service: ServiceDescriptor<'a>, index: usize) -> Self {
         debug_assert!(index < service.methods().len());
         MethodDescriptor {
             service,
@@ -198,6 +204,13 @@ impl MethodDescriptor {
         self.inner().server_streaming
     }
 
+    pub fn to_owned(&self) -> MethodDescriptor<'static> {
+        MethodDescriptor {
+            service: self.service.to_owned(),
+            index: self.index,
+        }
+    }
+
     fn inner(&self) -> &MethodDescriptorInner {
         &self.service.inner().methods[self.index as usize]
     }
@@ -224,7 +237,7 @@ impl MethodDescriptorInner {
     }
 }
 
-impl fmt::Debug for MethodDescriptor {
+impl<'a> fmt::Debug for MethodDescriptor<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("MethodDescriptor")
             .field("name", &self.name())

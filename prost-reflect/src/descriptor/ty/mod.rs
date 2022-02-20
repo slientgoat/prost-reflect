@@ -35,8 +35,8 @@ pub(super) struct TypeMap {
 
 /// A protobuf message definition.
 #[derive(Clone, PartialEq, Eq)]
-pub struct MessageDescriptor {
-    file_set: FileDescriptor,
+pub struct MessageDescriptor<'a> {
+    file_set: FileDescriptor<'a>,
 }
 
 struct MessageDescriptorInner {
@@ -52,8 +52,8 @@ struct MessageDescriptorInner {
 
 /// A oneof field in a protobuf message.
 #[derive(Clone, PartialEq, Eq)]
-pub struct OneofDescriptor {
-    message: MessageDescriptor,
+pub struct OneofDescriptor<'a> {
+    message: MessageDescriptor<'a>,
     index: u32,
 }
 
@@ -65,8 +65,8 @@ struct OneofDescriptorInner {
 
 /// A protobuf message definition.
 #[derive(Clone, PartialEq, Eq)]
-pub struct FieldDescriptor {
-    message: MessageDescriptor,
+pub struct FieldDescriptor<'a> {
+    message: MessageDescriptor<'a>,
     field: u32,
 }
 
@@ -85,8 +85,8 @@ struct FieldDescriptorInner {
 
 /// A protobuf extension field definition.
 #[derive(Clone, PartialEq, Eq)]
-pub struct ExtensionDescriptor {
-    file_set: FileDescriptor,
+pub struct ExtensionDescriptor<'a> {
+    file_set: FileDescriptor<'a>,
 }
 
 pub struct ExtensionDescriptorInner {
@@ -99,8 +99,8 @@ pub struct ExtensionDescriptorInner {
 
 /// A protobuf enum type.
 #[derive(Clone, PartialEq, Eq)]
-pub struct EnumDescriptor {
-    file_set: FileDescriptor,
+pub struct EnumDescriptor<'a> {
+    file_set: FileDescriptor<'a>,
 }
 
 struct EnumDescriptorInner {
@@ -113,8 +113,8 @@ struct EnumDescriptorInner {
 
 /// A value in a protobuf enum type.
 #[derive(Clone, PartialEq, Eq)]
-pub struct EnumValueDescriptor {
-    parent: EnumDescriptor,
+pub struct EnumValueDescriptor<'a> {
+    parent: EnumDescriptor<'a>,
     index: u32,
 }
 
@@ -126,7 +126,7 @@ struct EnumValueDescriptorInner {
 
 /// The type of a protobuf message field.
 #[derive(Clone, PartialEq, Eq)]
-pub enum Kind {
+pub enum Kind<'a> {
     /// The protobuf `double` type.
     Double,
     /// The protobuf `float` type.
@@ -158,9 +158,9 @@ pub enum Kind {
     /// The protobuf `bytes` type.
     Bytes,
     /// A protobuf message type.
-    Message(MessageDescriptor),
+    Message(MessageDescriptor<'a>),
     /// A protobuf enum type.
-    Enum(EnumDescriptor),
+    Enum(EnumDescriptor<'a>),
 }
 
 /// Cardinality determines whether a field is optional, required, or repeated.
@@ -180,32 +180,35 @@ enum ParentKind {
     Message { index: u32 },
 }
 
-impl MessageDescriptor {
-    pub(in crate::descriptor) fn new(mut file_set: FileDescriptor, ty: TypeId) -> Self {
+impl<'a> MessageDescriptor<'a> {
+    pub(in crate::descriptor) fn new(mut file_set: FileDescriptor<'a>, ty: TypeId) -> Self {
         debug_assert_eq!(ty.0, field_descriptor_proto::Type::Message);
         *file_set.inner.data_mut() = ty.1;
         MessageDescriptor { file_set }
     }
 
-    pub(in crate::descriptor) fn iter(
-        file_set: &FileDescriptor,
-    ) -> impl ExactSizeIterator<Item = Self> + '_ {
+    pub(in crate::descriptor) fn iter<'b>(
+        file_set: &'a FileDescriptor<'b>,
+    ) -> impl ExactSizeIterator<Item = MessageDescriptor<'a>> + 'a
+    where
+        'b: 'a,
+    {
         file_set
             .inner
             .type_map
             .messages()
-            .map(move |ty| MessageDescriptor::new(file_set.clone(), ty))
+            .map(move |ty| MessageDescriptor::new(file_set.borrow(), ty))
     }
 
     pub(in crate::descriptor) fn try_get_by_name(
-        file_set: &FileDescriptor,
+        file_set: &'a FileDescriptor<'a>,
         name: &str,
     ) -> Option<Self> {
         let ty = file_set.inner.type_map.get_by_name(name)?;
         if !ty.is_message() {
             return None;
         }
-        Some(MessageDescriptor::new(file_set.clone(), ty))
+        Some(MessageDescriptor::new(file_set.borrow(), ty))
     }
 
     /// Gets a reference to the [`FileDescriptor`] this message is defined in.
@@ -372,7 +375,7 @@ impl MessageDescriptor {
             .extensions
             .iter()
             .map(move |&index| ExtensionDescriptor {
-                file_set: self.file_set.clone_with_data(index),
+                file_set: self.file_set.borrow().with_data(index),
             })
     }
 
@@ -393,9 +396,21 @@ impl MessageDescriptor {
     fn index(&self) -> u32 {
         self.file_set.inner.data()
     }
+
+    fn borrow(&self) -> MessageDescriptor<'_> {
+        MessageDescriptor {
+            file_set: self.file_set.borrow(),
+        }
+    }
+
+    pub fn to_owned(&self) -> MessageDescriptor<'static> {
+        MessageDescriptor {
+            file_set: self.file_set.to_owned(),
+        }
+    }
 }
 
-impl fmt::Debug for MessageDescriptor {
+impl<'a> fmt::Debug for MessageDescriptor<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("MessageDescriptor")
             .field("name", &self.name())
@@ -407,15 +422,15 @@ impl fmt::Debug for MessageDescriptor {
     }
 }
 
-impl FieldDescriptor {
+impl<'a> FieldDescriptor<'a> {
     /// Gets a reference to the [`FileDescriptor`] this field is defined in.
-    pub fn parent_file(&self) -> &FileDescriptor {
-        self.message.parent_file()
+    pub fn parent_file(&self) -> FileDescriptor<'_> {
+        self.message.parent_file().borrow()
     }
 
     /// Gets a reference to the [`MessageDescriptor`] this field is defined in.
-    pub fn parent_message(&self) -> &MessageDescriptor {
-        &self.message
+    pub fn parent_message(&self) -> MessageDescriptor<'_> {
+        self.message.borrow()
     }
 
     /// Gets the short name of the message type, e.g. `my_field`.
@@ -430,7 +445,7 @@ impl FieldDescriptor {
 
     /// Gets a reference to the raw [`FieldDescriptorProto`] wrapped by this [`FieldDescriptor`].
     pub fn field_descriptor_proto(&self) -> &FieldDescriptorProto {
-        self.parent_message()
+        self.message
             .descriptor_proto()
             .field
             .iter()
@@ -510,6 +525,13 @@ impl FieldDescriptor {
             .map(|index| OneofDescriptor::new(self.message.clone(), index))
     }
 
+    pub fn to_owned(&self) -> FieldDescriptor<'static> {
+        FieldDescriptor {
+            message: self.message.to_owned(),
+            field: self.field,
+        }
+    }
+
     pub(crate) fn default_value(&self) -> Option<&crate::Value> {
         self.message_field_ty().default_value.as_ref()
     }
@@ -523,7 +545,7 @@ impl FieldDescriptor {
     }
 }
 
-impl fmt::Debug for FieldDescriptor {
+impl<'a> fmt::Debug for FieldDescriptor<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FieldDescriptor")
             .field("name", &self.name())
@@ -546,22 +568,24 @@ impl fmt::Debug for FieldDescriptor {
     }
 }
 
-impl ExtensionDescriptor {
+impl<'a> ExtensionDescriptor<'a> {
     pub(in crate::descriptor) fn iter(
-        file_set: &FileDescriptor,
-    ) -> impl ExactSizeIterator<Item = Self> + '_ {
+        file_set: &'a FileDescriptor<'a>,
+    ) -> impl ExactSizeIterator<Item = ExtensionDescriptor<'a>> {
         file_set
             .inner
             .type_map
             .extensions()
             .map(move |index| ExtensionDescriptor {
-                file_set: file_set.clone_with_data(index.try_into().expect("index too large")),
+                file_set: file_set
+                    .borrow()
+                    .with_data(index.try_into().expect("index too large")),
             })
     }
 
     /// Gets a reference to the [`FileDescriptor`] this extension field is defined in.
-    pub fn parent_file(&self) -> &FileDescriptor {
-        &self.file_set
+    pub fn parent_file(&self) -> FileDescriptor<'_> {
+        self.file_set.borrow()
     }
 
     /// Gets the parent message type if this extension is defined within another message, or `None` otherwise.
@@ -696,6 +720,12 @@ impl ExtensionDescriptor {
         self.message_field_ty().ty.is_packable()
     }
 
+    pub fn to_owned(&self) -> ExtensionDescriptor<'static> {
+        ExtensionDescriptor {
+            file_set: self.file_set.to_owned(),
+        }
+    }
+
     fn message_field_ty(&self) -> &FieldDescriptorInner {
         &self.extension_ty().field
     }
@@ -709,7 +739,7 @@ impl ExtensionDescriptor {
     }
 }
 
-impl fmt::Debug for ExtensionDescriptor {
+impl<'a> fmt::Debug for ExtensionDescriptor<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ExtensionDescriptor")
             .field("name", &self.name())
@@ -732,7 +762,7 @@ impl fmt::Debug for ExtensionDescriptor {
     }
 }
 
-impl Kind {
+impl<'a> Kind<'a> {
     /// Gets a reference to the [`MessageDescriptor`] if this is a message type,
     /// or `None` otherwise.
     pub fn as_message(&self) -> Option<&MessageDescriptor> {
@@ -748,6 +778,28 @@ impl Kind {
         match self {
             Kind::Enum(desc) => Some(desc),
             _ => None,
+        }
+    }
+
+    pub fn to_owned(&self) -> Kind<'static> {
+        match self {
+            Kind::Double => Kind::Double,
+            Kind::Float => Kind::Float,
+            Kind::Int32 => Kind::Int32,
+            Kind::Int64 => Kind::Int64,
+            Kind::Uint32 => Kind::Uint32,
+            Kind::Uint64 => Kind::Uint64,
+            Kind::Sint32 => Kind::Sint32,
+            Kind::Sint64 => Kind::Sint64,
+            Kind::Fixed32 => Kind::Fixed32,
+            Kind::Fixed64 => Kind::Fixed64,
+            Kind::Sfixed32 => Kind::Sfixed32,
+            Kind::Sfixed64 => Kind::Sfixed64,
+            Kind::Bool => Kind::Bool,
+            Kind::String => Kind::String,
+            Kind::Bytes => Kind::Bytes,
+            Kind::Message(message) => Kind::Message(message.to_owned()),
+            Kind::Enum(enum_ty) => Kind::Enum(enum_ty.to_owned()),
         }
     }
 
@@ -768,7 +820,7 @@ impl Kind {
     }
 }
 
-impl fmt::Debug for Kind {
+impl<'a> fmt::Debug for Kind<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Double => write!(f, "double"),
@@ -792,16 +844,16 @@ impl fmt::Debug for Kind {
     }
 }
 
-impl EnumDescriptor {
-    pub(in crate::descriptor) fn new(mut file_set: FileDescriptor, ty: TypeId) -> Self {
+impl<'a> EnumDescriptor<'a> {
+    pub(in crate::descriptor) fn new(mut file_set: FileDescriptor<'a>, ty: TypeId) -> Self {
         debug_assert_eq!(ty.0, field_descriptor_proto::Type::Enum);
         *file_set.inner.data_mut() = ty.1;
         EnumDescriptor { file_set }
     }
 
     pub(in crate::descriptor) fn iter(
-        file_set: &FileDescriptor,
-    ) -> impl ExactSizeIterator<Item = Self> + '_ {
+        file_set: &'a FileDescriptor<'a>,
+    ) -> impl ExactSizeIterator<Item = EnumDescriptor<'a>> {
         file_set
             .inner
             .type_map
@@ -810,7 +862,7 @@ impl EnumDescriptor {
     }
 
     pub(in crate::descriptor) fn try_get_by_name(
-        file_set: &FileDescriptor,
+        file_set: &'a FileDescriptor<'a>,
         name: &str,
     ) -> Option<Self> {
         let ty = file_set.inner.type_map.get_by_name(name)?;
@@ -934,6 +986,12 @@ impl EnumDescriptor {
             .map(|n| n.as_ref())
     }
 
+    pub fn to_owned(&self) -> EnumDescriptor<'static> {
+        EnumDescriptor {
+            file_set: self.file_set.to_owned(),
+        }
+    }
+
     fn enum_ty(&self) -> &EnumDescriptorInner {
         self.file_set.inner.type_map.get_enum(self.index())
     }
@@ -943,7 +1001,7 @@ impl EnumDescriptor {
     }
 }
 
-impl fmt::Debug for EnumDescriptor {
+impl<'a> fmt::Debug for EnumDescriptor<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("EnumDescriptor")
             .field("name", &self.name())
@@ -954,7 +1012,7 @@ impl fmt::Debug for EnumDescriptor {
     }
 }
 
-impl EnumValueDescriptor {
+impl<'a> EnumValueDescriptor<'a> {
     fn new(parent: EnumDescriptor, index: usize) -> EnumValueDescriptor {
         EnumValueDescriptor {
             parent,
@@ -997,12 +1055,19 @@ impl EnumValueDescriptor {
         self.enum_value_ty().number
     }
 
+    pub fn to_owned(&self) -> EnumValueDescriptor<'static> {
+        EnumValueDescriptor {
+            parent: self.parent.to_owned(),
+            index: self.index,
+        }
+    }
+
     fn enum_value_ty(&self) -> &EnumValueDescriptorInner {
         &self.parent.enum_ty().values[self.index as usize]
     }
 }
 
-impl fmt::Debug for EnumValueDescriptor {
+impl<'a> fmt::Debug for EnumValueDescriptor<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("EnumValueDescriptor")
             .field("name", &self.number())
@@ -1012,8 +1077,8 @@ impl fmt::Debug for EnumValueDescriptor {
     }
 }
 
-impl OneofDescriptor {
-    fn new(message: MessageDescriptor, index: usize) -> Self {
+impl<'a> OneofDescriptor<'a> {
+    fn new(message: MessageDescriptor<'a>, index: usize) -> Self {
         OneofDescriptor {
             message,
             index: index.try_into().expect("index too large"),
@@ -1056,12 +1121,19 @@ impl OneofDescriptor {
             })
     }
 
+    pub fn to_owned(&self) -> OneofDescriptor<'static> {
+        OneofDescriptor {
+            message: self.message.to_owned(),
+            index: self.index,
+        }
+    }
+
     fn oneof_ty(&self) -> &OneofDescriptorInner {
         &self.message.message_ty().oneof_decls[self.index as usize]
     }
 }
 
-impl fmt::Debug for OneofDescriptor {
+impl<'a> fmt::Debug for OneofDescriptor<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("OneofDescriptor")
             .field("name", &self.name())
@@ -1219,7 +1291,7 @@ impl TypeId {
         }
     }
 
-    fn to_kind(self, file_set: &FileDescriptor) -> Kind {
+    fn to_kind<'a>(self, file_set: &FileDescriptor<'a>) -> Kind<'a> {
         match self.0 {
             field_descriptor_proto::Type::Double => Kind::Double,
             field_descriptor_proto::Type::Float => Kind::Float,
@@ -1272,11 +1344,17 @@ impl ParentKind {
     }
 }
 
-fn get_file_descriptor_proto(file_set: &FileDescriptor, index: u32) -> &FileDescriptorProto {
+fn get_file_descriptor_proto<'a>(
+    file_set: &'a FileDescriptor<'a>,
+    index: u32,
+) -> &'a FileDescriptorProto {
     &file_set.file_descriptor_set().file[index as usize]
 }
 
-fn find_message_descriptor_proto(file_set: &FileDescriptor, index: u32) -> &DescriptorProto {
+fn find_message_descriptor_proto<'a>(
+    file_set: &'a FileDescriptor<'a>,
+    index: u32,
+) -> &'a DescriptorProto {
     let message = file_set.inner.type_map.get_message(index);
     match message.parent {
         ParentKind::File { index: file_index } => get_file_descriptor_proto(file_set, file_index)

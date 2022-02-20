@@ -4,7 +4,8 @@ use crate::test_file_descriptor;
 fn test_descriptor_methods() {
     let message_desc = test_file_descriptor()
         .get_message_by_name("my.package.MyMessage")
-        .unwrap();
+        .unwrap()
+        .to_owned();
     assert_eq!(message_desc.name(), "MyMessage");
     assert_eq!(message_desc.full_name(), "my.package.MyMessage");
     assert_eq!(message_desc.parent_message(), None);
@@ -25,7 +26,8 @@ fn test_descriptor_methods() {
 
     let nested_message_desc = test_file_descriptor()
         .get_message_by_name("my.package.MyMessage.MyNestedMessage")
-        .unwrap();
+        .unwrap()
+        .to_owned();
     assert_eq!(nested_message_desc.name(), "MyNestedMessage");
     assert_eq!(
         nested_message_desc.full_name(),
@@ -39,7 +41,8 @@ fn test_descriptor_methods() {
 
     let enum_desc = test_file_descriptor()
         .get_enum_by_name("my.package.MyEnum")
-        .unwrap();
+        .unwrap()
+        .to_owned();
     assert_eq!(enum_desc.name(), "MyEnum");
     assert_eq!(enum_desc.full_name(), "my.package.MyEnum");
     assert_eq!(enum_desc.parent_message(), None);
@@ -59,7 +62,8 @@ fn test_descriptor_methods() {
 
     let nested_enum_desc = test_file_descriptor()
         .get_enum_by_name("my.package.MyMessage.MyNestedEnum")
-        .unwrap();
+        .unwrap()
+        .to_owned();
     assert_eq!(nested_enum_desc.name(), "MyNestedEnum");
     assert_eq!(
         nested_enum_desc.full_name(),
@@ -71,7 +75,8 @@ fn test_descriptor_methods() {
     let service_desc = test_file_descriptor()
         .services()
         .find(|s| s.full_name() == "my.package.MyService")
-        .unwrap();
+        .unwrap()
+        .to_owned();
     assert_eq!(service_desc.name(), "MyService");
     assert_eq!(service_desc.full_name(), "my.package.MyService");
     assert_eq!(service_desc.package_name(), "my.package");
@@ -88,7 +93,8 @@ fn test_descriptor_methods() {
 fn test_descriptor_methods_proto2() {
     let message_desc = test_file_descriptor()
         .get_message_by_name("my.package2.MyMessage")
-        .unwrap();
+        .unwrap()
+        .to_owned();
     assert_eq!(message_desc.name(), "MyMessage");
     assert_eq!(message_desc.full_name(), "my.package2.MyMessage");
     assert_eq!(message_desc.parent_message(), None);
@@ -101,7 +107,10 @@ fn test_descriptor_methods_proto2() {
         vec![100, 110, 111, 112, 113, 114, 115],
     );
 
-    let mut extensions: Vec<_> = test_file_descriptor().all_extensions().collect();
+    let mut extensions: Vec<_> = test_file_descriptor()
+        .all_extensions()
+        .map(|ext| ext.to_owned())
+        .collect();
     extensions.sort_by_key(|e| e.full_name().to_owned());
     assert_eq!(extensions.len(), 3);
 
@@ -152,7 +161,8 @@ fn test_descriptor_methods_proto2() {
 fn test_descriptor_names_no_package() {
     let message_desc = test_file_descriptor()
         .get_message_by_name("MyMessage")
-        .unwrap();
+        .unwrap()
+        .to_owned();
     assert_eq!(message_desc.name(), "MyMessage");
     assert_eq!(message_desc.full_name(), "MyMessage");
     assert_eq!(message_desc.parent_message(), None);
@@ -164,7 +174,8 @@ fn test_descriptor_names_no_package() {
 
     let nested_message_desc = test_file_descriptor()
         .get_message_by_name("MyMessage.MyNestedMessage")
-        .unwrap();
+        .unwrap()
+        .to_owned();
     assert_eq!(nested_message_desc.name(), "MyNestedMessage");
     assert_eq!(nested_message_desc.full_name(), "MyMessage.MyNestedMessage");
     assert_eq!(
@@ -173,19 +184,23 @@ fn test_descriptor_names_no_package() {
     );
     assert_eq!(nested_message_desc.package_name(), "");
 
-    let enum_desc = test_file_descriptor().get_enum_by_name("MyEnum").unwrap();
+    let enum_desc = test_file_descriptor()
+        .get_enum_by_name("MyEnum")
+        .unwrap()
+        .to_owned();
     assert_eq!(enum_desc.name(), "MyEnum");
     assert_eq!(enum_desc.full_name(), "MyEnum");
     assert_eq!(enum_desc.parent_message(), None);
     assert_eq!(enum_desc.package_name(), "");
 
-    let enum_value_desc = enum_desc.get_value_by_name("MY_VALUE").unwrap();
+    let enum_value_desc = enum_desc.get_value_by_name("MY_VALUE").unwrap().to_owned();
     assert_eq!(enum_value_desc.name(), "MY_VALUE");
     assert_eq!(enum_value_desc.full_name(), "MY_VALUE");
 
     let nested_enum_desc = test_file_descriptor()
         .get_enum_by_name("MyMessage.MyNestedEnum")
-        .unwrap();
+        .unwrap()
+        .to_owned();
     assert_eq!(nested_enum_desc.name(), "MyNestedEnum");
     assert_eq!(nested_enum_desc.full_name(), "MyMessage.MyNestedEnum");
     assert_eq!(nested_enum_desc.parent_message(), Some(message_desc));
@@ -194,7 +209,8 @@ fn test_descriptor_names_no_package() {
     let service_desc = test_file_descriptor()
         .services()
         .find(|s| s.full_name() == "MyService")
-        .unwrap();
+        .unwrap()
+        .to_owned();
     assert_eq!(service_desc.name(), "MyService");
     assert_eq!(service_desc.full_name(), "MyService");
     assert_eq!(service_desc.package_name(), "");
@@ -202,7 +218,8 @@ fn test_descriptor_names_no_package() {
     let method_desc = service_desc
         .methods()
         .find(|m| m.name() == "MyMethod")
-        .unwrap();
+        .unwrap()
+        .to_owned();
     assert_eq!(method_desc.name(), "MyMethod");
     assert_eq!(method_desc.full_name(), "MyService.MyMethod");
 }
@@ -279,7 +296,8 @@ fn test_raw_getters() {
 fn test_enum_alias() {
     let enum_desc = test_file_descriptor()
         .get_enum_by_name("test.EnumWithAlias")
-        .unwrap();
+        .unwrap()
+        .to_owned();
     assert_eq!(enum_desc.name(), "EnumWithAlias");
     assert_eq!(enum_desc.full_name(), "test.EnumWithAlias");
     assert_eq!(enum_desc.parent_message(), None);

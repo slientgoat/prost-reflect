@@ -17,7 +17,7 @@ pub(super) trait FieldDescriptorLike: fmt::Debug {
     fn is_valid(&self, value: &Value) -> bool;
     fn containing_oneof(&self) -> Option<OneofDescriptor>;
     fn supports_presence(&self) -> bool;
-    fn kind(&self) -> Kind;
+    fn kind(&self) -> Kind<'_>;
     fn is_group(&self) -> bool;
     fn is_list(&self) -> bool;
     fn is_map(&self) -> bool;
@@ -41,8 +41,8 @@ pub(super) enum ValueOrUnknown {
 }
 
 pub(super) enum ValueAndDescriptor<'a> {
-    Field(&'a Value, FieldDescriptor),
-    Extension(&'a Value, ExtensionDescriptor),
+    Field(&'a Value, FieldDescriptor<'a>),
+    Extension(&'a Value, ExtensionDescriptor<'a>),
     Unknown(u32, &'a [UnknownField]),
 }
 
@@ -127,7 +127,7 @@ impl DynamicMessageFieldSet {
     pub(crate) fn iter<'a>(
         &'a self,
         message: &'a MessageDescriptor,
-    ) -> impl Iterator<Item = ValueAndDescriptor> + 'a {
+    ) -> impl Iterator<Item = ValueAndDescriptor<'a>> + 'a {
         self.fields
             .iter()
             .filter_map(move |(&number, value)| match value {
@@ -168,7 +168,7 @@ impl ValueOrUnknown {
     }
 }
 
-impl FieldDescriptorLike for FieldDescriptor {
+impl<'a> FieldDescriptorLike for FieldDescriptor<'a> {
     fn number(&self) -> u32 {
         self.number()
     }
@@ -193,7 +193,7 @@ impl FieldDescriptorLike for FieldDescriptor {
         self.supports_presence()
     }
 
-    fn kind(&self) -> Kind {
+    fn kind(&self) -> Kind<'_> {
         self.kind()
     }
 
@@ -218,7 +218,7 @@ impl FieldDescriptorLike for FieldDescriptor {
     }
 }
 
-impl FieldDescriptorLike for ExtensionDescriptor {
+impl<'a> FieldDescriptorLike for ExtensionDescriptor<'a> {
     fn number(&self) -> u32 {
         self.number()
     }

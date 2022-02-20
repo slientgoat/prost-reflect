@@ -49,15 +49,13 @@ impl Message for DynamicMessage {
         Self: Sized,
     {
         if let Some(field_desc) = self.desc.get_field(number) {
-            self.get_field_mut(&field_desc)
+            self.fields
+                .get_mut(&field_desc)
                 .merge_field(&field_desc, wire_type, buf, ctx)
         } else if let Some(extension_desc) = self.desc.get_extension(number) {
-            self.get_extension_mut(&extension_desc).merge_field(
-                &extension_desc,
-                wire_type,
-                buf,
-                ctx,
-            )
+            self.fields
+                .get_mut(&extension_desc)
+                .merge_field(&extension_desc, wire_type, buf, ctx)
         } else {
             let field = UnknownField::decode(number, wire_type, buf, ctx)?;
             self.fields.add_unknown(number, field);

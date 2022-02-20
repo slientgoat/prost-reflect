@@ -25,7 +25,7 @@ use crate::{
 /// [`Message`][`prost::Message`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct DynamicMessage {
-    desc: MessageDescriptor,
+    desc: MessageDescriptor<'static>,
     fields: DynamicMessageFieldSet,
 }
 
@@ -85,7 +85,7 @@ impl DynamicMessage {
     pub fn new(desc: MessageDescriptor) -> Self {
         DynamicMessage {
             fields: DynamicMessageFieldSet::default(),
-            desc,
+            desc: desc.to_owned(),
         }
     }
 
@@ -168,9 +168,10 @@ impl DynamicMessage {
     ///
     /// See [`get_field_mut`][Self::get_field_mut] for more details.
     pub fn get_field_by_number_mut(&mut self, number: u32) -> Option<&mut Value> {
+        let fields = &mut self.fields;
         self.desc
             .get_field(number)
-            .map(move |field_desc| self.get_field_mut(&field_desc))
+            .map(move |field_desc| fields.get_mut(&field_desc))
     }
 
     /// Sets the value of the field with number `number`, or the default value if it is unset.
@@ -180,7 +181,7 @@ impl DynamicMessage {
     /// See [`set_field`][Self::set_field] for more details.
     pub fn set_field_by_number(&mut self, number: u32, value: Value) {
         if let Some(field_desc) = self.desc.get_field(number) {
-            self.set_field(&field_desc, value)
+            self.fields.set(&field_desc, value)
         }
     }
 
@@ -191,7 +192,7 @@ impl DynamicMessage {
     /// See [`clear_field`][Self::clear_field] for more details.
     pub fn clear_field_by_number(&mut self, number: u32) {
         if let Some(field_desc) = self.desc.get_field(number) {
-            self.clear_field(&field_desc);
+            self.fields.clear(&field_desc);
         }
     }
 
@@ -222,9 +223,10 @@ impl DynamicMessage {
     ///
     /// See [`get_field_mut`][Self::get_field_mut] for more details.
     pub fn get_field_by_name_mut(&mut self, name: &str) -> Option<&mut Value> {
+        let fields = &mut self.fields;
         self.desc
             .get_field_by_name(name)
-            .map(move |field_desc| self.get_field_mut(&field_desc))
+            .map(move |field_desc| fields.get_mut(&field_desc))
     }
 
     /// Sets the value of the field with name `name`.
@@ -234,7 +236,7 @@ impl DynamicMessage {
     /// See [`set_field`][Self::set_field] for more details.
     pub fn set_field_by_name(&mut self, name: &str, value: Value) {
         if let Some(field_desc) = self.desc.get_field_by_name(name) {
-            self.set_field(&field_desc, value)
+            self.fields.set(&field_desc, value)
         }
     }
 
@@ -245,7 +247,7 @@ impl DynamicMessage {
     /// See [`clear_field`][Self::clear_field] for more details.
     pub fn clear_field_by_name(&mut self, name: &str) {
         if let Some(field_desc) = self.desc.get_field_by_name(name) {
-            self.clear_field(&field_desc);
+            self.fields.clear(&field_desc);
         }
     }
 
@@ -405,10 +407,10 @@ impl Value {
                 list.iter().all(|value| value.is_valid(&kind))
             }
             (Value::Map(map), Kind::Message(message_desc)) if field_desc.is_map() => {
-                let key_desc = message_desc.map_entry_key_field().kind();
+                let key_desc = message_desc.map_entry_key_field();
                 let value_desc = message_desc.map_entry_value_field();
                 map.iter().all(|(key, value)| {
-                    key.is_valid(&key_desc) && value.is_valid_for_field(&value_desc)
+                    key.is_valid(&key_desc.kind()) && value.is_valid_for_field(&value_desc)
                 })
             }
             (value, kind) => value.is_valid(&kind),
@@ -424,10 +426,10 @@ impl Value {
                 list.iter().all(|value| value.is_valid(&kind))
             }
             (Value::Map(map), Kind::Message(message_desc)) if extension_desc.is_map() => {
-                let key_desc = message_desc.map_entry_key_field().kind();
+                let key_desc = message_desc.map_entry_key_field();
                 let value_desc = message_desc.map_entry_value_field();
                 map.iter().all(|(key, value)| {
-                    key.is_valid(&key_desc) && value.is_valid_for_field(&value_desc)
+                    key.is_valid(&key_desc.kind()) && value.is_valid_for_field(&value_desc)
                 })
             }
             (value, kind) => value.is_valid(&kind),

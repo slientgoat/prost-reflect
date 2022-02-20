@@ -121,7 +121,7 @@ where
 
 struct ValueAndKind<'a> {
     value: &'a Value,
-    kind: &'a Kind,
+    kind: &'a Kind<'a>,
 }
 
 impl<'a> Serialize for SerializeWrapper<'a, ValueAndKind<'a>> {
@@ -209,9 +209,11 @@ impl<'a> Serialize for SerializeWrapper<'a, ValueAndKind<'a>> {
                 list.end()
             }
             Value::Map(values) => {
+                let map_value_desc;
                 let value_kind = match self.value.kind {
                     Kind::Message(message) if message.is_map_entry() => {
-                        message.map_entry_value_field().kind()
+                        map_value_desc = message.map_entry_value_field();
+                        map_value_desc.kind()
                     }
                     _ => panic!(
                         "mismatch between DynamicMessage value {:?} and type {:?}",

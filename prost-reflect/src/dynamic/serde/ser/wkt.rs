@@ -5,15 +5,12 @@ use prost::{DecodeError, Message};
 use serde::ser::{Error, Serialize, SerializeMap, SerializeSeq, Serializer};
 use time::{Duration, OffsetDateTime, UtcOffset};
 
-use crate::{
-    dynamic::{
-        serde::{
-            case::snake_case_to_camel_case, is_well_known_type, SerializeOptions,
-            MAX_DURATION_NANOS, MAX_DURATION_SECONDS, MAX_TIMESTAMP_SECONDS, MIN_TIMESTAMP_SECONDS,
-        },
-        DynamicMessage,
+use crate::dynamic::{
+    serde::{
+        case::snake_case_to_camel_case, is_well_known_type, SerializeOptions, MAX_DURATION_NANOS,
+        MAX_DURATION_SECONDS, MAX_TIMESTAMP_SECONDS, MIN_TIMESTAMP_SECONDS,
     },
-    ReflectMessage,
+    DynamicMessage,
 };
 
 use super::{serialize_dynamic_message_fields, SerializeWrapper};
@@ -63,7 +60,7 @@ where
 
     if let Some(message_name) = raw.type_url.strip_prefix("type.googleapis.com/") {
         let message_desc = msg
-            .descriptor()
+            .desc
             .parent_file()
             .get_message_by_name(message_name)
             .ok_or_else(|| Error::custom(format!("message '{}' not found", message_name)))?;

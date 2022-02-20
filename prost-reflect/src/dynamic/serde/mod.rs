@@ -38,7 +38,7 @@ impl Serialize for DynamicMessage {
 }
 
 #[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
-impl<'de> DeserializeSeed<'de> for MessageDescriptor {
+impl<'de> DeserializeSeed<'de> for MessageDescriptor<'de> {
     type Value = DynamicMessage;
 
     /// Deserialize a [`DynamicMessage`] from `deserializer` using the [canonical JSON encoding](https://developers.google.com/protocol-buffers/docs/proto3#json).

@@ -24,7 +24,7 @@ const FILE_DESCRIPTOR_SET_BYTES: &[u8] =
 static TEST_FILE_DESCRIPTOR: Lazy<FileDescriptor> =
     Lazy::new(|| FileDescriptor::decode(FILE_DESCRIPTOR_SET_BYTES).unwrap());
 
-fn test_file_descriptor() -> FileDescriptor {
+fn test_file_descriptor() -> FileDescriptor<'static> {
     TEST_FILE_DESCRIPTOR.clone()
 }
 
@@ -806,7 +806,8 @@ fn oneof_set_multiple_values() {
 fn roundtrip_extension() {
     let message_desc = test_file_descriptor()
         .get_message_by_name("my.package2.MyMessage")
-        .unwrap();
+        .unwrap()
+        .to_owned();
 
     let extension_desc = message_desc.get_extension(113).unwrap();
     assert_eq!(
@@ -819,7 +820,7 @@ fn roundtrip_extension() {
     let bytes = dynamic_message.encode_to_vec();
 
     let roundtripped_dynamic_message =
-        DynamicMessage::decode(message_desc, bytes.as_ref()).unwrap();
+        DynamicMessage::decode(message_desc.clone(), bytes.as_ref()).unwrap();
     assert!(roundtripped_dynamic_message.has_extension(&extension_desc));
     assert_eq!(
         roundtripped_dynamic_message

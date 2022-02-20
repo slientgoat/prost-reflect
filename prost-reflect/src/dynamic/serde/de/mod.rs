@@ -85,7 +85,7 @@ where
     }
 }
 
-struct MessageSeed<'a>(&'a MessageDescriptor, &'a DeserializeOptions);
+struct MessageSeed<'a>(&'a MessageDescriptor<'a>, &'a DeserializeOptions);
 
 impl<'a, 'de> DeserializeSeed<'de> for MessageSeed<'a> {
     type Value = DynamicMessage;

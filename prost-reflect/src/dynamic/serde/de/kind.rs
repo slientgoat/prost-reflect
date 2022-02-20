@@ -5,14 +5,14 @@ use serde::de::{DeserializeSeed, Deserializer, Error, IgnoredAny, MapAccess, Seq
 
 use crate::{
     dynamic::{serde::DeserializeOptions, DynamicMessage, MapKey, Value},
-    EnumDescriptor, Kind, MessageDescriptor, ReflectMessage,
+    EnumDescriptor, Kind, MessageDescriptor,
 };
 
 use super::{
     deserialize_enum, deserialize_message, FieldDescriptorSeed, OptionalFieldDescriptorSeed,
 };
 
-pub struct KindSeed<'a>(pub &'a Kind, pub &'a DeserializeOptions);
+pub struct KindSeed<'a>(pub &'a Kind<'a>, pub &'a DeserializeOptions);
 
 impl<'a, 'de> DeserializeSeed<'de> for KindSeed<'a> {
     type Value = Value;
@@ -49,8 +49,8 @@ impl<'a, 'de> DeserializeSeed<'de> for KindSeed<'a> {
     }
 }
 
-pub struct ListVisitor<'a>(pub &'a Kind, pub &'a DeserializeOptions);
-pub struct MapVisitor<'a>(pub &'a Kind, pub &'a DeserializeOptions);
+pub struct ListVisitor<'a>(pub &'a Kind<'a>, pub &'a DeserializeOptions);
+pub struct MapVisitor<'a>(pub &'a Kind<'a>, pub &'a DeserializeOptions);
 pub struct DoubleVisitor;
 pub struct FloatVisitor;
 pub struct Int32Visitor;
@@ -60,9 +60,9 @@ pub struct Uint64Visitor;
 pub struct StringVisitor;
 pub struct BoolVisitor;
 pub struct BytesVisitor;
-pub struct MessageVisitor<'a>(pub &'a MessageDescriptor, pub &'a DeserializeOptions);
+pub struct MessageVisitor<'a>(pub &'a MessageDescriptor<'a>, pub &'a DeserializeOptions);
 pub struct MessageVisitorInner<'a>(pub &'a mut DynamicMessage, pub &'a DeserializeOptions);
-pub struct EnumVisitor<'a>(pub &'a EnumDescriptor);
+pub struct EnumVisitor<'a>(pub &'a EnumDescriptor<'a>);
 
 impl<'a, 'de> Visitor<'de> for ListVisitor<'a> {
     type Value = Vec<Value>;
@@ -100,11 +100,11 @@ impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
         let mut result = HashMap::with_capacity(map.size_hint().unwrap_or(0));
 
         let map_entry_message = self.0.as_message().unwrap();
-        let key_kind = map_entry_message.map_entry_key_field().kind();
+        let key_desc = map_entry_message.map_entry_key_field();
         let value_desc = map_entry_message.map_entry_value_field();
 
         while let Some(key_str) = map.next_key::<Cow<str>>()? {
-            let key = match key_kind {
+            let key = match key_desc.kind() {
                 Kind::Int32 | Kind::Sint32 | Kind::Sfixed32 => {
                     MapKey::I32(i32::from_str(key_str.as_ref()).map_err(Error::custom)?)
                 }
@@ -538,9 +538,11 @@ impl<'a, 'de> Visitor<'de> for MessageVisitorInner<'a> {
     where
         A: MapAccess<'de>,
     {
-        let desc = self.0.descriptor();
+        let desc = &self.0.desc;
         while let Some(key) = map.next_key::<Cow<str>>()? {
-            if let Some(field) = desc
+            if let Some(field) = self
+                .0
+                .desc
                 .get_field_by_json_name(key.as_ref())
                 .or_else(|| desc.get_field_by_name(key.as_ref()))
             {
@@ -558,13 +560,13 @@ impl<'a, 'de> Visitor<'de> for MessageVisitorInner<'a> {
                         }
                     }
 
-                    self.0.set_field(&field, value);
+                    self.0.fields.set(&field, value);
                 }
             } else if let Some(extension_desc) = desc.get_extension_by_json_name(key.as_ref()) {
                 if let Some(value) =
                     map.next_value_seed(OptionalFieldDescriptorSeed(&extension_desc, self.1))?
                 {
-                    self.0.set_extension(&extension_desc, value);
+                    self.0.fields.set(&extension_desc, value);
                 }
             } else if self.1.deny_unknown_fields {
                 return Err(Error::custom(format!("unrecognized field name '{}'", key)));
