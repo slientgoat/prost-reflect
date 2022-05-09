@@ -17,13 +17,13 @@ harness = false
 
 [dependencies]
 once_cell = "1.9.0"
-prost = { git = "https://github.com/tokio-rs/prost", branch = "master" }
+prost = { git = "https://github.com/andrewhickman/prost", branch = "master" }
 prost-reflect = { path = "../prost-reflect", features = [
     "serde",
     "derive",
     "reflect-well-known-types"
 ] }
-prost-types = { git = "https://github.com/tokio-rs/prost", branch = "master" }
+prost-types = { git = "https://github.com/andrewhickman/prost", branch = "master" }
 
 [dev-dependencies]
 proptest = "1.0.0"
@@ -34,7 +34,7 @@ criterion = "0.3.5"
 
 [build-dependencies]
 prost-reflect-build = { path = "../prost-reflect-build" }
-prost-build = { git = "https://github.com/tokio-rs/prost", branch = "master" }
+prost-build = { git = "https://github.com/andrewhickman/prost", branch = "master" }
 
 [package.metadata.release]
 release = false

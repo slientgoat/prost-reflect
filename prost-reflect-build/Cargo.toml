@@ -17,7 +17,7 @@ exclude = ["test.proto"]
 prost-reflect = { path = "../prost-reflect", version = "0.8.0", features = [
     "derive"
 ] }
-prost-build = { git = "https://github.com/tokio-rs/prost", branch = "master" }
+prost-build = { git = "https://github.com/andrewhickman/prost", branch = "master" }
 
 [[package.metadata.release.pre-release-replacements]]
 file = "src/lib.rs"
