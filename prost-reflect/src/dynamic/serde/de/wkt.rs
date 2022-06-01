@@ -25,7 +25,7 @@ use crate::{
 
 use super::{deserialize_message, kind::MessageVisitorInner, MessageSeed};
 
-pub struct GoogleProtobufAnyVisitor<'a>(pub &'a DescriptorPool, pub &'a DeserializeOptions);
+pub struct GoogleProtobufAnyVisitor<'a>(pub DescriptorPool, pub &'a DeserializeOptions);
 pub struct GoogleProtobufNullVisitor;
 pub struct GoogleProtobufTimestampVisitor;
 pub struct GoogleProtobufDurationVisitor;

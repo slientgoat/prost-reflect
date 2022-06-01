@@ -354,7 +354,7 @@ fn descriptor_pool_add_individual_files() {
         .unwrap();
     assert_eq!(message_desc.name(), "MyMessage");
     assert_eq!(message_desc.full_name(), "my.package.MyMessage");
-    assert_eq!(message_desc.parent_pool(), &roundtripped);
+    assert_eq!(message_desc.parent_pool(), roundtripped);
     assert_eq!(message_desc.parent_message(), None);
     assert_eq!(message_desc.package_name(), "my.package");
 }

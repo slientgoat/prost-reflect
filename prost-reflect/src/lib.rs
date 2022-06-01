@@ -20,9 +20,11 @@ mod reflect;
 pub use {prost, prost::bytes, prost_types};
 
 pub use self::descriptor::{
-    Cardinality, DescriptorError, DescriptorPool, EnumDescriptor, EnumValueDescriptor,
-    ExtensionDescriptor, FieldDescriptor, FileDescriptor, Kind, MessageDescriptor,
-    MethodDescriptor, OneofDescriptor, ServiceDescriptor, Syntax,
+    Cardinality, DescriptorError, DescriptorPool, DescriptorPoolRef, EnumDescriptor,
+    EnumDescriptorRef, EnumValueDescriptor, EnumValueDescriptorRef, ExtensionDescriptor,
+    ExtensionDescriptorRef, FieldDescriptor, FieldDescriptorRef, FileDescriptor, FileDescriptorRef,
+    Kind, MessageDescriptor, MessageDescriptorRef, MethodDescriptor, MethodDescriptorRef,
+    OneofDescriptor, OneofDescriptorRef, ServiceDescriptor, ServiceDescriptorRef, Syntax,
 };
 pub use self::dynamic::{DynamicMessage, MapKey, Value};
 pub use self::reflect::ReflectMessage;

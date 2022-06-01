@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: Some `parent_*` methods on descriptors now return owned values instead of references. Use `.as_ref().parent_*()` to get a reference-like value.
+
 ## [0.8.1] - 2022-05-29
 
 ### Added

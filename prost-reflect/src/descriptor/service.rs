@@ -4,13 +4,20 @@ use prost_types::{FileDescriptorProto, MethodDescriptorProto, ServiceDescriptorP
 
 use super::{
     debug_fmt_iter, make_full_name, parse_name, parse_namespace, to_index, ty, DescriptorError,
-    DescriptorPool, FileDescriptor, FileIndex, MessageDescriptor, MethodIndex, ServiceIndex,
+    DescriptorPool, DescriptorPoolRef, FileDescriptor, FileDescriptorRef, FileIndex,
+    MessageDescriptor, MessageDescriptorRef, MethodIndex, ServiceIndex,
 };
 
 /// A protobuf service definition.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ServiceDescriptor {
-    descriptor_pool: DescriptorPool,
+    pool: DescriptorPool,
+    index: ServiceIndex,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub struct ServiceDescriptorRef<'a> {
+    pool: DescriptorPoolRef<'a>,
     index: ServiceIndex,
 }
 
@@ -25,6 +32,12 @@ pub(super) struct ServiceDescriptorInner {
 #[derive(Clone, PartialEq, Eq)]
 pub struct MethodDescriptor {
     service: ServiceDescriptor,
+    index: MethodIndex,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub struct MethodDescriptorRef<'a> {
+    service: ServiceDescriptorRef<'a>,
     index: MethodIndex,
 }
 
@@ -43,48 +56,102 @@ impl ServiceDescriptor {
     /// # Panics
     ///
     /// Panics if `index` is out-of-bounds.
-    pub fn new(descriptor_pool: DescriptorPool, index: usize) -> Self {
-        debug_assert!(index < descriptor_pool.services().len());
-        ServiceDescriptor {
-            descriptor_pool,
-            index: to_index(index),
+    pub fn new(pool: DescriptorPool, index: usize) -> Self {
+        ServiceDescriptorRef::new(pool.as_ref(), index).to_owned()
+    }
+
+    /// Gets a [`ServiceDescriptorRef`] referencing this service.
+    pub fn as_ref(&self) -> ServiceDescriptorRef<'_> {
+        ServiceDescriptorRef {
+            pool: self.pool.as_ref(),
+            index: self.index,
         }
     }
 
     /// Returns the index of this [`ServiceDescriptor`] within the parent [`DescriptorPool`].
     pub fn index(&self) -> usize {
-        self.index as usize
+        self.as_ref().index()
     }
 
     /// Gets a reference to the [`DescriptorPool`] this service is defined in.
-    pub fn parent_pool(&self) -> &DescriptorPool {
-        &self.descriptor_pool
+    pub fn parent_pool(&self) -> DescriptorPool {
+        self.as_ref().parent_pool().to_owned()
     }
 
     /// Gets the [`FileDescriptor`] this service is defined in.
     pub fn parent_file(&self) -> FileDescriptor {
-        FileDescriptor::new(self.descriptor_pool.clone(), self.inner().file as _)
+        self.as_ref().parent_file().to_owned()
     }
 
     /// Gets the short name of the service, e.g. `MyService`.
     pub fn name(&self) -> &str {
-        parse_name(self.full_name())
+        self.as_ref().name()
     }
 
     /// Gets the full name of the service, e.g. `my.package.Service`.
     pub fn full_name(&self) -> &str {
-        &self.inner().full_name
+        self.as_ref().full_name()
     }
 
     /// Gets the name of the package this service is defined in, e.g. `my.package`.
     ///
     /// If no package name is set, an empty string is returned.
     pub fn package_name(&self) -> &str {
-        parse_namespace(self.full_name())
+        self.as_ref().package_name()
     }
 
     /// Gets a reference to the raw [`ServiceDescriptorProto`] wrapped by this [`ServiceDescriptor`].
     pub fn service_descriptor_proto(&self) -> &ServiceDescriptorProto {
+        self.as_ref().service_descriptor_proto()
+    }
+
+    /// Gets an iterator yielding a [`MethodDescriptor`] for each method defined in this service.
+    pub fn methods(&self) -> impl ExactSizeIterator<Item = MethodDescriptor> + '_ {
+        self.as_ref().methods().map(MethodDescriptorRef::to_owned)
+    }
+}
+
+impl<'a> ServiceDescriptorRef<'a> {
+    pub fn new(pool: DescriptorPoolRef<'a>, index: usize) -> Self {
+        debug_assert!(index < pool.services().len());
+        ServiceDescriptorRef {
+            pool,
+            index: to_index(index),
+        }
+    }
+
+    pub fn to_owned(self) -> ServiceDescriptor {
+        ServiceDescriptor {
+            pool: self.pool.to_owned(),
+            index: self.index,
+        }
+    }
+
+    pub fn index(&self) -> usize {
+        self.index as usize
+    }
+
+    pub fn parent_pool(&self) -> DescriptorPoolRef<'a> {
+        self.pool
+    }
+
+    pub fn parent_file(&self) -> FileDescriptorRef<'a> {
+        FileDescriptorRef::new(self.pool, self.inner().file as _)
+    }
+
+    pub fn name(&self) -> &'a str {
+        parse_name(self.full_name())
+    }
+
+    pub fn full_name(&self) -> &'a str {
+        &self.inner().full_name
+    }
+
+    pub fn package_name(&self) -> &'a str {
+        parse_namespace(self.full_name())
+    }
+
+    pub fn service_descriptor_proto(&self) -> &'a ServiceDescriptorProto {
         let name = self.name();
         let package = self.package_name();
         self.parent_pool()
@@ -95,12 +162,12 @@ impl ServiceDescriptor {
             .expect("service proto not found")
     }
 
-    /// Gets an iterator yielding a [`MethodDescriptor`] for each method defined in this service.
-    pub fn methods(&self) -> impl ExactSizeIterator<Item = MethodDescriptor> + '_ {
-        (0..self.inner().methods.len()).map(move |index| MethodDescriptor::new(self.clone(), index))
+    pub fn methods(&self) -> impl ExactSizeIterator<Item = MethodDescriptorRef<'a>> + 'a {
+        let this = *self;
+        (0..self.inner().methods.len()).map(move |index| MethodDescriptorRef::new(this, index))
     }
 
-    fn inner(&self) -> &ServiceDescriptorInner {
+    fn inner(&self) -> &'a ServiceDescriptorInner {
         &self.parent_pool().inner.services[self.index as usize]
     }
 }
@@ -136,6 +203,12 @@ impl ServiceDescriptorInner {
 
 impl fmt::Debug for ServiceDescriptor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.as_ref().fmt(f)
+    }
+}
+
+impl<'a> fmt::Debug for ServiceDescriptorRef<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ServiceDescriptor")
             .field("name", &self.name())
             .field("full_name", &self.full_name())
@@ -152,69 +225,134 @@ impl MethodDescriptor {
     ///
     /// Panics if `index` is out-of-bounds.
     pub fn new(service: ServiceDescriptor, index: usize) -> Self {
-        debug_assert!(index < service.methods().len());
-        MethodDescriptor {
-            service,
-            index: to_index(index),
+        MethodDescriptorRef::new(service.as_ref(), index).to_owned()
+    }
+
+    /// Gets a [`MethodDescriptorRef`] referencing this method.
+    pub fn as_ref(&self) -> MethodDescriptorRef<'_> {
+        MethodDescriptorRef {
+            service: self.service.as_ref(),
+            index: self.index,
         }
     }
 
     /// Gets the index of the method within the parent [`ServiceDescriptor`].
     pub fn index(&self) -> usize {
-        self.index as usize
+        self.as_ref().index()
     }
 
     /// Gets a reference to the [`ServiceDescriptor`] this method is defined in.
-    pub fn parent_service(&self) -> &ServiceDescriptor {
-        &self.service
+    pub fn parent_service(&self) -> ServiceDescriptor {
+        self.as_ref().parent_service().to_owned()
     }
 
     /// Gets a reference to the [`DescriptorPool`] this method is defined in.
-    pub fn parent_pool(&self) -> &DescriptorPool {
-        self.service.parent_pool()
+    pub fn parent_pool(&self) -> DescriptorPool {
+        self.as_ref().parent_pool().to_owned()
     }
 
     /// Gets the [`FileDescriptor`] this method is defined in.
     pub fn parent_file(&self) -> FileDescriptor {
-        self.service.parent_file()
+        self.as_ref().parent_file().to_owned()
     }
 
     /// Gets the short name of the method, e.g. `method`.
     pub fn name(&self) -> &str {
-        parse_name(self.full_name())
+        self.as_ref().name()
     }
 
     /// Gets the full name of the method, e.g. `my.package.MyService.my_method`.
     pub fn full_name(&self) -> &str {
-        &self.inner().full_name
+        self.as_ref().full_name()
     }
 
     /// Gets a reference to the raw [`MethodDescriptorProto`] wrapped by this [`MethodDescriptor`].
     pub fn method_descriptor_proto(&self) -> &MethodDescriptorProto {
-        &self.parent_service().service_descriptor_proto().method[self.index as usize]
+        self.as_ref().method_descriptor_proto()
     }
 
     /// Gets the [`MessageDescriptor`] for the input type of this method.
     pub fn input(&self) -> MessageDescriptor {
-        MessageDescriptor::new(self.parent_pool().clone(), self.inner().request_ty)
+        self.as_ref().input().to_owned()
     }
 
     /// Gets the [`MessageDescriptor`] for the output type of this method.
     pub fn output(&self) -> MessageDescriptor {
-        MessageDescriptor::new(self.parent_pool().clone(), self.inner().response_ty)
+        self.as_ref().output().to_owned()
     }
 
     /// Returns `true` if the client streams multiple messages.
     pub fn is_client_streaming(&self) -> bool {
-        self.inner().client_streaming
+        self.as_ref().is_client_streaming()
     }
 
     /// Returns `true` if the server streams multiple messages.
     pub fn is_server_streaming(&self) -> bool {
+        self.as_ref().is_server_streaming()
+    }
+}
+
+impl<'a> MethodDescriptorRef<'a> {
+    pub fn new(service: ServiceDescriptorRef<'a>, index: usize) -> Self {
+        debug_assert!(index < service.methods().len());
+        MethodDescriptorRef {
+            service,
+            index: to_index(index),
+        }
+    }
+
+    pub fn to_owned(self) -> MethodDescriptor {
+        MethodDescriptor {
+            service: self.service.to_owned(),
+            index: self.index,
+        }
+    }
+
+    pub fn index(&self) -> usize {
+        self.index as usize
+    }
+
+    pub fn parent_service(&self) -> ServiceDescriptorRef<'a> {
+        self.service
+    }
+
+    pub fn parent_pool(&self) -> DescriptorPoolRef<'a> {
+        self.service.parent_pool()
+    }
+
+    pub fn parent_file(&self) -> FileDescriptorRef<'a> {
+        self.service.parent_file()
+    }
+
+    pub fn name(&self) -> &'a str {
+        parse_name(self.full_name())
+    }
+
+    pub fn full_name(&self) -> &'a str {
+        &self.inner().full_name
+    }
+
+    pub fn method_descriptor_proto(&self) -> &'a MethodDescriptorProto {
+        &self.parent_service().service_descriptor_proto().method[self.index as usize]
+    }
+
+    pub fn input(&self) -> MessageDescriptorRef<'a> {
+        MessageDescriptorRef::new(self.parent_pool(), self.inner().request_ty)
+    }
+
+    pub fn output(&self) -> MessageDescriptorRef<'a> {
+        MessageDescriptorRef::new(self.parent_pool(), self.inner().response_ty)
+    }
+
+    pub fn is_client_streaming(&self) -> bool {
+        self.inner().client_streaming
+    }
+
+    pub fn is_server_streaming(&self) -> bool {
         self.inner().server_streaming
     }
 
-    fn inner(&self) -> &MethodDescriptorInner {
+    fn inner(&self) -> &'a MethodDescriptorInner {
         &self.service.inner().methods[self.index as usize]
     }
 }
@@ -256,6 +394,12 @@ impl MethodDescriptorInner {
 }
 
 impl fmt::Debug for MethodDescriptor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.as_ref().fmt(f)
+    }
+}
+
+impl<'a> fmt::Debug for MethodDescriptorRef<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("MethodDescriptor")
             .field("name", &self.name())
