@@ -6,7 +6,8 @@
 #![cfg_attr(feature = "derive", doc = "# Implementing [`ReflectMessage`]")]
 #![cfg_attr(feature = "derive", doc = include_str!("../doc/reflect.md"))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![warn(missing_debug_implementations, missing_docs)]
+#![warn(missing_debug_implementations)]
+// #![warn(missing_docs)]
 #![deny(unsafe_code)]
 #![doc(html_root_url = "https://docs.rs/prost-reflect/0.8.1/")]
 
@@ -23,7 +24,7 @@ pub use self::descriptor::{
     Cardinality, DescriptorError, DescriptorPool, DescriptorPoolRef, EnumDescriptor,
     EnumDescriptorRef, EnumValueDescriptor, EnumValueDescriptorRef, ExtensionDescriptor,
     ExtensionDescriptorRef, FieldDescriptor, FieldDescriptorRef, FileDescriptor, FileDescriptorRef,
-    Kind, MessageDescriptor, MessageDescriptorRef, MethodDescriptor, MethodDescriptorRef,
+    Kind, KindRef, MessageDescriptor, MessageDescriptorRef, MethodDescriptor, MethodDescriptorRef,
     OneofDescriptor, OneofDescriptorRef, ServiceDescriptor, ServiceDescriptorRef, Syntax,
 };
 pub use self::dynamic::{DynamicMessage, MapKey, Value};

@@ -214,6 +214,44 @@ pub enum Kind {
     Enum(EnumDescriptor),
 }
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum KindRef<'a> {
+    /// The protobuf `double` type.
+    Double,
+    /// The protobuf `float` type.
+    Float,
+    /// The protobuf `int32` type.
+    Int32,
+    /// The protobuf `int64` type.
+    Int64,
+    /// The protobuf `uint32` type.
+    Uint32,
+    /// The protobuf `uint64` type.
+    Uint64,
+    /// The protobuf `sint32` type.
+    Sint32,
+    /// The protobuf `sint64` type.
+    Sint64,
+    /// The protobuf `fixed32` type.
+    Fixed32,
+    /// The protobuf `fixed64` type.
+    Fixed64,
+    /// The protobuf `sfixed32` type.
+    Sfixed32,
+    /// The protobuf `sfixed64` type.
+    Sfixed64,
+    /// The protobuf `bool` type.
+    Bool,
+    /// The protobuf `string` type.
+    String,
+    /// The protobuf `bytes` type.
+    Bytes,
+    /// A protobuf message type.
+    Message(MessageDescriptorRef<'a>),
+    /// A protobuf enum type.
+    Enum(EnumDescriptorRef<'a>),
+}
+
 /// Cardinality determines whether a field is optional, required, or repeated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Cardinality {
@@ -740,7 +778,7 @@ impl FieldDescriptor {
 
     /// Gets the [`Kind`] of this field.
     pub fn kind(&self) -> Kind {
-        self.as_ref().kind()
+        self.as_ref().kind().to_owned()
     }
 
     /// Gets a [`OneofDescriptor`] representing the oneof containing this field,
@@ -749,14 +787,6 @@ impl FieldDescriptor {
         self.as_ref()
             .containing_oneof()
             .map(OneofDescriptorRef::to_owned)
-    }
-
-    pub(crate) fn default_value(&self) -> Option<&crate::Value> {
-        self.as_ref().default_value()
-    }
-
-    pub(crate) fn is_packable(&self) -> bool {
-        self.as_ref().is_packable()
     }
 }
 
@@ -816,7 +846,7 @@ impl<'a> FieldDescriptorRef<'a> {
     pub fn is_map(&self) -> bool {
         self.cardinality() == Cardinality::Repeated
             && match self.kind() {
-                Kind::Message(message) => message.is_map_entry(),
+                KindRef::Message(message) => message.is_map_entry(),
                 _ => false,
             }
     }
@@ -833,7 +863,7 @@ impl<'a> FieldDescriptorRef<'a> {
         self.inner().supports_presence
     }
 
-    pub fn kind(&self) -> Kind {
+    pub fn kind(&self) -> KindRef<'a> {
         self.inner().ty.to_kind(self.message.pool)
     }
 
@@ -997,20 +1027,12 @@ impl ExtensionDescriptor {
 
     /// Gets the [`Kind`] of this field.
     pub fn kind(&self) -> Kind {
-        self.as_ref().kind()
+        self.as_ref().kind().to_owned()
     }
 
     /// Gets the containing message that this field extends.
     pub fn containing_message(&self) -> MessageDescriptor {
         self.as_ref().containing_message().to_owned()
-    }
-
-    pub(crate) fn default_value(&self) -> Option<&crate::Value> {
-        self.as_ref().default_value()
-    }
-
-    pub(crate) fn is_packable(&self) -> bool {
-        self.as_ref().is_packable()
     }
 }
 
@@ -1103,7 +1125,7 @@ impl<'a> ExtensionDescriptorRef<'a> {
     pub fn is_map(&self) -> bool {
         self.cardinality() == Cardinality::Repeated
             && match self.kind() {
-                Kind::Message(message) => message.is_map_entry(),
+                KindRef::Message(message) => message.is_map_entry(),
                 _ => false,
             }
     }
@@ -1120,7 +1142,7 @@ impl<'a> ExtensionDescriptorRef<'a> {
         self.field_inner().supports_presence
     }
 
-    pub fn kind(&self) -> Kind {
+    pub fn kind(&self) -> KindRef<'a> {
         self.field_inner().ty.to_kind(self.pool)
     }
 
@@ -1175,6 +1197,29 @@ impl<'a> fmt::Debug for ExtensionDescriptorRef<'a> {
 }
 
 impl Kind {
+    /// Gets a [`KindRef`] referencing this kind.
+    pub fn as_ref(&self) -> KindRef<'_> {
+        match self {
+            Kind::Double => KindRef::Double,
+            Kind::Float => KindRef::Float,
+            Kind::Int32 => KindRef::Int32,
+            Kind::Int64 => KindRef::Int64,
+            Kind::Uint32 => KindRef::Uint32,
+            Kind::Uint64 => KindRef::Uint64,
+            Kind::Sint32 => KindRef::Sint32,
+            Kind::Sint64 => KindRef::Sint64,
+            Kind::Fixed32 => KindRef::Fixed32,
+            Kind::Fixed64 => KindRef::Fixed64,
+            Kind::Sfixed32 => KindRef::Sfixed32,
+            Kind::Sfixed64 => KindRef::Sfixed64,
+            Kind::Bool => KindRef::Bool,
+            Kind::String => KindRef::String,
+            Kind::Bytes => KindRef::Bytes,
+            Kind::Message(desc) => KindRef::Message(desc.as_ref()),
+            Kind::Enum(desc) => KindRef::Enum(desc.as_ref()),
+        }
+    }
+
     /// Gets a reference to the [`MessageDescriptor`] if this is a message type,
     /// or `None` otherwise.
     pub fn as_message(&self) -> Option<&MessageDescriptor> {
@@ -1192,25 +1237,63 @@ impl Kind {
             _ => None,
         }
     }
+}
+
+impl<'a> KindRef<'a> {
+    pub fn to_owned(self) -> Kind {
+        match self {
+            KindRef::Double => Kind::Double,
+            KindRef::Float => Kind::Float,
+            KindRef::Int32 => Kind::Int32,
+            KindRef::Int64 => Kind::Int64,
+            KindRef::Uint32 => Kind::Uint32,
+            KindRef::Uint64 => Kind::Uint64,
+            KindRef::Sint32 => Kind::Sint32,
+            KindRef::Sint64 => Kind::Sint64,
+            KindRef::Fixed32 => Kind::Fixed32,
+            KindRef::Fixed64 => Kind::Fixed64,
+            KindRef::Sfixed32 => Kind::Sfixed32,
+            KindRef::Sfixed64 => Kind::Sfixed64,
+            KindRef::Bool => Kind::Bool,
+            KindRef::String => Kind::String,
+            KindRef::Bytes => Kind::Bytes,
+            KindRef::Message(desc) => Kind::Message(desc.to_owned()),
+            KindRef::Enum(desc) => Kind::Enum(desc.to_owned()),
+        }
+    }
+
+    pub fn as_message(&self) -> Option<MessageDescriptorRef<'_>> {
+        match self {
+            KindRef::Message(desc) => Some(*desc),
+            _ => None,
+        }
+    }
+
+    pub fn as_enum(&self) -> Option<EnumDescriptorRef<'_>> {
+        match self {
+            KindRef::Enum(desc) => Some(*desc),
+            _ => None,
+        }
+    }
 
     pub(crate) fn wire_type(&self) -> WireType {
         match self {
-            Kind::Double | Kind::Fixed64 | Kind::Sfixed64 => WireType::SixtyFourBit,
-            Kind::Float | Kind::Fixed32 | Kind::Sfixed32 => WireType::ThirtyTwoBit,
-            Kind::Enum(_)
-            | Kind::Int32
-            | Kind::Int64
-            | Kind::Uint32
-            | Kind::Uint64
-            | Kind::Sint32
-            | Kind::Sint64
-            | Kind::Bool => WireType::Varint,
-            Kind::String | Kind::Bytes | Kind::Message(_) => WireType::LengthDelimited,
+            KindRef::Double | KindRef::Fixed64 | KindRef::Sfixed64 => WireType::SixtyFourBit,
+            KindRef::Float | KindRef::Fixed32 | KindRef::Sfixed32 => WireType::ThirtyTwoBit,
+            KindRef::Enum(_)
+            | KindRef::Int32
+            | KindRef::Int64
+            | KindRef::Uint32
+            | KindRef::Uint64
+            | KindRef::Sint32
+            | KindRef::Sint64
+            | KindRef::Bool => WireType::Varint,
+            KindRef::String | KindRef::Bytes | KindRef::Message(_) => WireType::LengthDelimited,
         }
     }
 }
 
-impl fmt::Debug for Kind {
+impl<'a> fmt::Debug for KindRef<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Double => write!(f, "double"),
@@ -1231,6 +1314,12 @@ impl fmt::Debug for Kind {
             Self::Message(m) => write!(f, "{}", m.full_name()),
             Self::Enum(e) => write!(f, "{}", e.full_name()),
         }
+    }
+}
+
+impl fmt::Debug for Kind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.as_ref().fmt(f)
     }
 }
 
@@ -1832,28 +1921,26 @@ impl TypeId {
         }
     }
 
-    fn to_kind(self, pool: DescriptorPoolRef) -> Kind {
+    fn to_kind(self, pool: DescriptorPoolRef) -> KindRef<'_> {
         match self.0 {
-            field_descriptor_proto::Type::Double => Kind::Double,
-            field_descriptor_proto::Type::Float => Kind::Float,
-            field_descriptor_proto::Type::Int64 => Kind::Int64,
-            field_descriptor_proto::Type::Uint64 => Kind::Uint64,
-            field_descriptor_proto::Type::Int32 => Kind::Int32,
-            field_descriptor_proto::Type::Fixed64 => Kind::Fixed64,
-            field_descriptor_proto::Type::Fixed32 => Kind::Fixed32,
-            field_descriptor_proto::Type::Bool => Kind::Bool,
-            field_descriptor_proto::Type::Uint32 => Kind::Uint32,
-            field_descriptor_proto::Type::Sfixed32 => Kind::Sfixed32,
-            field_descriptor_proto::Type::Sfixed64 => Kind::Sfixed64,
-            field_descriptor_proto::Type::Sint32 => Kind::Sint32,
-            field_descriptor_proto::Type::Sint64 => Kind::Sint64,
-            field_descriptor_proto::Type::String => Kind::String,
-            field_descriptor_proto::Type::Bytes => Kind::Bytes,
-            field_descriptor_proto::Type::Enum => {
-                Kind::Enum(EnumDescriptorRef::new(pool, self).to_owned())
-            }
+            field_descriptor_proto::Type::Double => KindRef::Double,
+            field_descriptor_proto::Type::Float => KindRef::Float,
+            field_descriptor_proto::Type::Int64 => KindRef::Int64,
+            field_descriptor_proto::Type::Uint64 => KindRef::Uint64,
+            field_descriptor_proto::Type::Int32 => KindRef::Int32,
+            field_descriptor_proto::Type::Fixed64 => KindRef::Fixed64,
+            field_descriptor_proto::Type::Fixed32 => KindRef::Fixed32,
+            field_descriptor_proto::Type::Bool => KindRef::Bool,
+            field_descriptor_proto::Type::Uint32 => KindRef::Uint32,
+            field_descriptor_proto::Type::Sfixed32 => KindRef::Sfixed32,
+            field_descriptor_proto::Type::Sfixed64 => KindRef::Sfixed64,
+            field_descriptor_proto::Type::Sint32 => KindRef::Sint32,
+            field_descriptor_proto::Type::Sint64 => KindRef::Sint64,
+            field_descriptor_proto::Type::String => KindRef::String,
+            field_descriptor_proto::Type::Bytes => KindRef::Bytes,
+            field_descriptor_proto::Type::Enum => KindRef::Enum(EnumDescriptorRef::new(pool, self)),
             field_descriptor_proto::Type::Group | field_descriptor_proto::Type::Message => {
-                Kind::Message(MessageDescriptorRef::new(pool, self).to_owned())
+                KindRef::Message(MessageDescriptorRef::new(pool, self))
             }
         }
     }

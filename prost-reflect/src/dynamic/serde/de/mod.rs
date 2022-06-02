@@ -8,11 +8,11 @@ use serde::de::{DeserializeSeed, Deserializer, Error, Visitor};
 
 use crate::{
     dynamic::{fields::FieldDescriptorLike, serde::DeserializeOptions, DynamicMessage, Value},
-    EnumDescriptor, Kind, MessageDescriptor,
+    EnumDescriptorRef, KindRef, MessageDescriptor,
 };
 
 pub(super) fn deserialize_message<'de, D>(
-    desc: &MessageDescriptor,
+    desc: MessageDescriptor,
     deserializer: D,
     options: &DeserializeOptions,
 ) -> Result<DynamicMessage, D::Error>
@@ -21,7 +21,10 @@ where
 {
     match desc.full_name() {
         "google.protobuf.Any" => deserializer
-            .deserialize_any(wkt::GoogleProtobufAnyVisitor(desc.parent_pool(), options))
+            .deserialize_any(wkt::GoogleProtobufAnyVisitor(
+                desc.as_ref().parent_pool(),
+                options,
+            ))
             .and_then(|timestamp| make_message(desc, timestamp)),
         "google.protobuf.Timestamp" => deserializer
             .deserialize_str(wkt::GoogleProtobufTimestampVisitor)
@@ -75,7 +78,7 @@ where
     }
 }
 
-fn deserialize_enum<'de, D>(desc: &EnumDescriptor, deserializer: D) -> Result<i32, D::Error>
+fn deserialize_enum<'de, D>(desc: EnumDescriptorRef, deserializer: D) -> Result<i32, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -85,7 +88,7 @@ where
     }
 }
 
-struct MessageSeed<'a>(&'a MessageDescriptor, &'a DeserializeOptions);
+struct MessageSeed<'a>(MessageDescriptor, &'a DeserializeOptions);
 
 impl<'a, 'de> DeserializeSeed<'de> for MessageSeed<'a> {
     type Value = DynamicMessage;
@@ -98,11 +101,11 @@ impl<'a, 'de> DeserializeSeed<'de> for MessageSeed<'a> {
     }
 }
 
-struct FieldDescriptorSeed<'a, T>(&'a T, &'a DeserializeOptions);
+struct FieldDescriptorSeed<'a, T>(T, &'a DeserializeOptions);
 
 impl<'a, 'de, T> DeserializeSeed<'de> for FieldDescriptorSeed<'a, T>
 where
-    T: FieldDescriptorLike,
+    T: FieldDescriptorLike<'a>,
 {
     type Value = Value;
 
@@ -112,23 +115,23 @@ where
     {
         if self.0.is_list() {
             deserializer
-                .deserialize_any(kind::ListVisitor(&self.0.kind(), self.1))
+                .deserialize_any(kind::ListVisitor(self.0.kind(), self.1))
                 .map(Value::List)
         } else if self.0.is_map() {
             deserializer
-                .deserialize_any(kind::MapVisitor(&self.0.kind(), self.1))
+                .deserialize_any(kind::MapVisitor(self.0.kind(), self.1))
                 .map(Value::Map)
         } else {
-            kind::KindSeed(&self.0.kind(), self.1).deserialize(deserializer)
+            kind::KindSeed(self.0.kind(), self.1).deserialize(deserializer)
         }
     }
 }
 
-struct OptionalFieldDescriptorSeed<'a, T>(&'a T, &'a DeserializeOptions);
+struct OptionalFieldDescriptorSeed<'a, T>(T, &'a DeserializeOptions);
 
 impl<'a, 'de, T> DeserializeSeed<'de> for OptionalFieldDescriptorSeed<'a, T>
 where
-    T: FieldDescriptorLike,
+    T: FieldDescriptorLike<'a>,
 {
     type Value = Option<Value>;
 
@@ -142,7 +145,7 @@ where
 
 impl<'a, 'de, T> Visitor<'de> for OptionalFieldDescriptorSeed<'a, T>
 where
-    T: FieldDescriptorLike,
+    T: FieldDescriptorLike<'a>,
 {
     type Value = Option<Value>;
 
@@ -163,10 +166,10 @@ where
     where
         E: Error,
     {
-        if let Kind::Message(message_desc) = self.0.kind() {
+        if let KindRef::Message(message_desc) = self.0.kind() {
             match message_desc.full_name() {
                 "google.protobuf.Value" => make_message(
-                    &message_desc,
+                    message_desc.to_owned(),
                     prost_types::Value {
                         kind: Some(prost_types::value::Kind::NullValue(0)),
                     },
@@ -191,10 +194,10 @@ where
 }
 
 fn make_message<E: Error, T: Message>(
-    desc: &MessageDescriptor,
+    desc: MessageDescriptor,
     message: T,
 ) -> Result<DynamicMessage, E> {
-    let mut dynamic = DynamicMessage::new(desc.clone());
+    let mut dynamic = DynamicMessage::new(desc);
     dynamic
         .transcode_from(&message)
         .map_err(|err| Error::custom(format!("error decoding: {}", err)))?;

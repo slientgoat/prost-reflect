@@ -84,7 +84,7 @@ impl DynamicMessage {
     where
         D: Deserializer<'de>,
     {
-        de::deserialize_message(&desc, deserializer, options)
+        de::deserialize_message(desc, deserializer, options)
     }
 }
 

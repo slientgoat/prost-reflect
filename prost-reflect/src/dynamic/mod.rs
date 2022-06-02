@@ -16,7 +16,7 @@ use prost::{
 
 use self::fields::DynamicMessageFieldSet;
 use crate::{
-    descriptor::Kind, ExtensionDescriptor, FieldDescriptor, MessageDescriptor, ReflectMessage,
+    ExtensionDescriptorRef, FieldDescriptorRef, KindRef, MessageDescriptor, ReflectMessage,
 };
 
 /// [`DynamicMessage`] provides encoding, decoding and reflection of a protobuf message.
@@ -108,19 +108,22 @@ impl DynamicMessage {
     ///
     /// If this method returns `false`, then the field will not be included in the encoded bytes
     /// of this message.
-    pub fn has_field(&self, field_desc: &FieldDescriptor) -> bool {
-        self.fields.has(field_desc)
+    pub fn has_field<'a>(&self, field_desc: impl Into<FieldDescriptorRef<'a>>) -> bool {
+        self.fields.has(field_desc.into())
     }
 
     /// Gets the value of the given field, or the default value if it is unset.
-    pub fn get_field(&self, field_desc: &FieldDescriptor) -> Cow<'_, Value> {
-        self.fields.get(field_desc)
+    pub fn get_field<'a>(&self, field_desc: impl Into<FieldDescriptorRef<'a>>) -> Cow<'_, Value> {
+        self.fields.get(field_desc.into())
     }
 
     /// Gets a mutable reference to the value ofthe given field. If the field is not set,
     /// it is inserted with its default value.
-    pub fn get_field_mut(&mut self, field_desc: &FieldDescriptor) -> &mut Value {
-        self.fields.get_mut(field_desc)
+    pub fn get_field_mut<'a>(
+        &mut self,
+        field_desc: impl Into<FieldDescriptorRef<'a>>,
+    ) -> &mut Value {
+        self.fields.get_mut(field_desc.into())
     }
 
     /// Sets the value of the given field.
@@ -129,16 +132,16 @@ impl DynamicMessage {
     ///
     /// This method may panic if the value type is not compatible with the field type, as defined
     /// by [`Value::is_valid_for_field`].
-    pub fn set_field(&mut self, field_desc: &FieldDescriptor, value: Value) {
-        self.fields.set(field_desc, value);
+    pub fn set_field<'a>(&mut self, field_desc: impl Into<FieldDescriptorRef<'a>>, value: Value) {
+        self.fields.set(field_desc.into(), value);
     }
 
     /// Clears the given field.
     ///
     /// After calling this method, `has_field` will return false for the field,
     /// and it will not be included in the encoded bytes of this message.
-    pub fn clear_field(&mut self, field_desc: &FieldDescriptor) {
-        self.fields.clear(field_desc);
+    pub fn clear_field<'a>(&mut self, field_desc: impl Into<FieldDescriptorRef<'a>>) {
+        self.fields.clear(field_desc.into());
     }
 
     /// Returns `true` if this message has a field set with the given number.
@@ -146,8 +149,9 @@ impl DynamicMessage {
     /// See [`has_field`][Self::has_field] for more details.
     pub fn has_field_by_number(&self, number: u32) -> bool {
         self.desc
+            .as_ref()
             .get_field(number)
-            .map_or(false, |field_desc| self.has_field(&field_desc))
+            .map_or(false, |field_desc| self.has_field(field_desc))
     }
 
     /// Gets the value of the field with the given number, or the default value if it is unset.
@@ -157,8 +161,9 @@ impl DynamicMessage {
     /// See [`get_field`][Self::get_field] for more details.
     pub fn get_field_by_number(&self, number: u32) -> Option<Cow<'_, Value>> {
         self.desc
+            .as_ref()
             .get_field(number)
-            .map(|field_desc| self.get_field(&field_desc))
+            .map(|field_desc| self.fields.get(field_desc))
     }
 
     /// Gets a mutable reference to the value of the field with the given number. If the field
@@ -168,9 +173,11 @@ impl DynamicMessage {
     ///
     /// See [`get_field_mut`][Self::get_field_mut] for more details.
     pub fn get_field_by_number_mut(&mut self, number: u32) -> Option<&mut Value> {
+        let fields = &mut self.fields;
         self.desc
+            .as_ref()
             .get_field(number)
-            .map(move |field_desc| self.get_field_mut(&field_desc))
+            .map(move |field_desc| fields.get_mut(field_desc))
     }
 
     /// Sets the value of the field with number `number`, or the default value if it is unset.
@@ -179,8 +186,8 @@ impl DynamicMessage {
     ///
     /// See [`set_field`][Self::set_field] for more details.
     pub fn set_field_by_number(&mut self, number: u32, value: Value) {
-        if let Some(field_desc) = self.desc.get_field(number) {
-            self.set_field(&field_desc, value)
+        if let Some(field_desc) = self.desc.as_ref().get_field(number) {
+            self.fields.set(field_desc, value)
         }
     }
 
@@ -190,8 +197,8 @@ impl DynamicMessage {
     ///
     /// See [`clear_field`][Self::clear_field] for more details.
     pub fn clear_field_by_number(&mut self, number: u32) {
-        if let Some(field_desc) = self.desc.get_field(number) {
-            self.clear_field(&field_desc);
+        if let Some(field_desc) = self.desc.as_ref().get_field(number) {
+            self.fields.clear(field_desc)
         }
     }
 
@@ -200,8 +207,9 @@ impl DynamicMessage {
     /// See [`has_field`][Self::has_field] for more details.
     pub fn has_field_by_name(&self, name: &str) -> bool {
         self.desc
+            .as_ref()
             .get_field_by_name(name)
-            .map_or(false, |field_desc| self.has_field(&field_desc))
+            .map_or(false, |field_desc| self.has_field(field_desc))
     }
 
     /// Gets the value of the field with the given name, or the default value if it is unset.
@@ -211,8 +219,9 @@ impl DynamicMessage {
     /// See [`get_field`][Self::get_field] for more details.
     pub fn get_field_by_name(&self, name: &str) -> Option<Cow<'_, Value>> {
         self.desc
+            .as_ref()
             .get_field_by_name(name)
-            .map(|field_desc| self.get_field(&field_desc))
+            .map(|field_desc| self.get_field(field_desc))
     }
 
     /// Gets a mutable reference to the value of the field with the given name. If the field
@@ -222,9 +231,11 @@ impl DynamicMessage {
     ///
     /// See [`get_field_mut`][Self::get_field_mut] for more details.
     pub fn get_field_by_name_mut(&mut self, name: &str) -> Option<&mut Value> {
+        let fields = &mut self.fields;
         self.desc
+            .as_ref()
             .get_field_by_name(name)
-            .map(move |field_desc| self.get_field_mut(&field_desc))
+            .map(move |field_desc| fields.get_mut(field_desc))
     }
 
     /// Sets the value of the field with name `name`.
@@ -233,8 +244,8 @@ impl DynamicMessage {
     ///
     /// See [`set_field`][Self::set_field] for more details.
     pub fn set_field_by_name(&mut self, name: &str, value: Value) {
-        if let Some(field_desc) = self.desc.get_field_by_name(name) {
-            self.set_field(&field_desc, value)
+        if let Some(field_desc) = self.desc.as_ref().get_field_by_name(name) {
+            self.fields.set(field_desc, value)
         }
     }
 
@@ -244,45 +255,55 @@ impl DynamicMessage {
     ///
     /// See [`clear_field`][Self::clear_field] for more details.
     pub fn clear_field_by_name(&mut self, name: &str) {
-        if let Some(field_desc) = self.desc.get_field_by_name(name) {
-            self.clear_field(&field_desc);
+        if let Some(field_desc) = self.desc.as_ref().get_field_by_name(name) {
+            self.fields.clear(field_desc);
         }
     }
 
     /// Returns `true` if this message has the given extension field set.
     ///
     /// See [`has_field`][Self::has_field] for more details.
-    pub fn has_extension(&self, extension_desc: &ExtensionDescriptor) -> bool {
-        self.fields.has(extension_desc)
+    pub fn has_extension<'a>(&self, extension_desc: impl Into<ExtensionDescriptorRef<'a>>) -> bool {
+        self.fields.has(extension_desc.into())
     }
 
     /// Gets the value of the given extension field, or the default value if it is unset.
     ///
     /// See [`get_field`][Self::get_field] for more details.
-    pub fn get_extension(&self, extension_desc: &ExtensionDescriptor) -> Cow<'_, Value> {
-        self.fields.get(extension_desc)
+    pub fn get_extension<'a>(
+        &self,
+        extension_desc: impl Into<ExtensionDescriptorRef<'a>>,
+    ) -> Cow<'_, Value> {
+        self.fields.get(extension_desc.into())
     }
 
     /// Gets a mutable reference to the value of the given extension field. If the
     /// field is not set, it is inserted with its default value.
     ///
     /// See [`get_field_mut`][Self::get_field_mut] for more details.
-    pub fn get_extension_mut(&mut self, extension_desc: &ExtensionDescriptor) -> &mut Value {
-        self.fields.get_mut(extension_desc)
+    pub fn get_extension_mut<'a>(
+        &mut self,
+        extension_desc: impl Into<ExtensionDescriptorRef<'a>>,
+    ) -> &mut Value {
+        self.fields.get_mut(extension_desc.into())
     }
 
     /// Sets the value of the given extension field.
     ///
     /// See [`set_field`][Self::set_field] for more details.
-    pub fn set_extension(&mut self, extension_desc: &ExtensionDescriptor, value: Value) {
-        self.fields.set(extension_desc, value)
+    pub fn set_extension<'a>(
+        &mut self,
+        extension_desc: impl Into<ExtensionDescriptorRef<'a>>,
+        value: Value,
+    ) {
+        self.fields.set(extension_desc.into(), value)
     }
 
     /// Clears the given extension field.
     ///
     /// See [`clear_field`][Self::clear_field] for more details.
-    pub fn clear_extension(&mut self, extension_desc: &ExtensionDescriptor) {
-        self.fields.clear(extension_desc)
+    pub fn clear_extension<'a>(&mut self, extension_desc: impl Into<ExtensionDescriptorRef<'a>>) {
+        self.fields.clear(extension_desc.into())
     }
 
     /// Merge a strongly-typed message into this one.
@@ -333,7 +354,8 @@ impl Value {
     /// * If the field is a map, an empty map is returned.
     /// * If the field is `repeated`, an empty list is returned.
     /// * If the field has a custom default value specified, that is returned (proto2 only).
-    pub fn default_value_for_field(field_desc: &FieldDescriptor) -> Self {
+    pub fn default_value_for_field<'a>(field_desc: impl Into<FieldDescriptorRef<'a>>) -> Self {
+        let field_desc = field_desc.into();
         if field_desc.is_list() {
             Value::List(Vec::default())
         } else if field_desc.is_map() {
@@ -341,14 +363,17 @@ impl Value {
         } else if let Some(default_value) = field_desc.default_value() {
             default_value.clone()
         } else {
-            Self::default_value(&field_desc.kind())
+            Self::default_value(field_desc.kind())
         }
     }
 
     /// Returns the default value for the given protobuf extension field.
     ///
     /// See [`default_value_for_field`][Value::default_value_for_field] for more details.
-    pub fn default_value_for_extension(extension_desc: &ExtensionDescriptor) -> Self {
+    pub fn default_value_for_extension<'a>(
+        extension_desc: impl Into<ExtensionDescriptorRef<'a>>,
+    ) -> Self {
+        let extension_desc = extension_desc.into();
         if extension_desc.is_list() {
             Value::List(Vec::default())
         } else if extension_desc.is_map() {
@@ -356,7 +381,7 @@ impl Value {
         } else if let Some(default_value) = extension_desc.default_value() {
             default_value.clone()
         } else {
-            Self::default_value(&extension_desc.kind())
+            Self::default_value(extension_desc.kind())
         }
     }
 
@@ -364,34 +389,37 @@ impl Value {
     ///
     /// Unlike [`default_value_for_field`](Value::default_value_for_field), this method does not
     /// look at field cardinality, so it will never return a list or map.
-    pub fn default_value(kind: &Kind) -> Self {
-        match kind {
-            Kind::Message(desc) => Value::Message(DynamicMessage::new(desc.clone())),
-            Kind::Enum(enum_ty) => Value::EnumNumber(enum_ty.default_value().number()),
-            Kind::Double => Value::F64(0.0),
-            Kind::Float => Value::F32(0.0),
-            Kind::Int32 | Kind::Sint32 | Kind::Sfixed32 => Value::I32(0),
-            Kind::Int64 | Kind::Sint64 | Kind::Sfixed64 => Value::I64(0),
-            Kind::Uint32 | Kind::Fixed32 => Value::U32(0),
-            Kind::Uint64 | Kind::Fixed64 => Value::U64(0),
-            Kind::Bool => Value::Bool(false),
-            Kind::String => Value::String(String::default()),
-            Kind::Bytes => Value::Bytes(Bytes::default()),
+    pub fn default_value<'a>(kind: impl Into<KindRef<'a>>) -> Self {
+        match kind.into() {
+            KindRef::Message(desc) => Value::Message(DynamicMessage::new(desc.to_owned())),
+            KindRef::Enum(enum_ty) => Value::EnumNumber(enum_ty.default_value().number()),
+            KindRef::Double => Value::F64(0.0),
+            KindRef::Float => Value::F32(0.0),
+            KindRef::Int32 | KindRef::Sint32 | KindRef::Sfixed32 => Value::I32(0),
+            KindRef::Int64 | KindRef::Sint64 | KindRef::Sfixed64 => Value::I64(0),
+            KindRef::Uint32 | KindRef::Fixed32 => Value::U32(0),
+            KindRef::Uint64 | KindRef::Fixed64 => Value::U64(0),
+            KindRef::Bool => Value::Bool(false),
+            KindRef::String => Value::String(String::default()),
+            KindRef::Bytes => Value::Bytes(Bytes::default()),
         }
     }
 
     /// Returns `true` if this is the default value for the given protobuf field.
-    pub fn is_default_for_field(&self, field_desc: &FieldDescriptor) -> bool {
+    pub fn is_default_for_field<'a>(&self, field_desc: impl Into<FieldDescriptorRef<'a>>) -> bool {
         *self == Value::default_value_for_field(field_desc)
     }
 
     /// Returns `true` if this is the default value for the given protobuf extension field.
-    pub fn is_default_for_extension(&self, extension_desc: &ExtensionDescriptor) -> bool {
+    pub fn is_default_for_extension<'a>(
+        &self,
+        extension_desc: impl Into<ExtensionDescriptorRef<'a>>,
+    ) -> bool {
         *self == Value::default_value_for_extension(extension_desc)
     }
 
     /// Returns `true` if this is the default value for the given protobuf type `kind`.
-    pub fn is_default(&self, kind: &Kind) -> bool {
+    pub fn is_default<'a>(&self, kind: impl Into<KindRef<'a>>) -> bool {
         *self == Value::default_value(kind)
     }
 
@@ -399,38 +427,43 @@ impl Value {
     ///
     /// Note this only checks if the value can be successfully encoded. It doesn't
     /// check, for example, that enum values are in the defined range.
-    pub fn is_valid_for_field(&self, field_desc: &FieldDescriptor) -> bool {
+    pub fn is_valid_for_field<'a>(&self, field_desc: impl Into<FieldDescriptorRef<'a>>) -> bool {
+        let field_desc = field_desc.into();
         match (self, field_desc.kind()) {
             (Value::List(list), kind) if field_desc.is_list() => {
-                list.iter().all(|value| value.is_valid(&kind))
+                list.iter().all(|value| value.is_valid(kind))
             }
-            (Value::Map(map), Kind::Message(message_desc)) if field_desc.is_map() => {
+            (Value::Map(map), KindRef::Message(message_desc)) if field_desc.is_map() => {
                 let key_desc = message_desc.map_entry_key_field().kind();
                 let value_desc = message_desc.map_entry_value_field();
                 map.iter().all(|(key, value)| {
-                    key.is_valid(&key_desc) && value.is_valid_for_field(&value_desc)
+                    key.is_valid(key_desc) && value.is_valid_for_field(value_desc)
                 })
             }
-            (value, kind) => value.is_valid(&kind),
+            (value, kind) => value.is_valid(kind),
         }
     }
 
     /// Returns `true` if this value can be set for a given extension field.
     ///
     /// See [`is_valid_for_field`][Value::is_valid_for_field] for more details.
-    pub fn is_valid_for_extension(&self, extension_desc: &ExtensionDescriptor) -> bool {
+    pub fn is_valid_for_extension<'a>(
+        &self,
+        extension_desc: impl Into<ExtensionDescriptorRef<'a>>,
+    ) -> bool {
+        let extension_desc = extension_desc.into();
         match (self, extension_desc.kind()) {
             (Value::List(list), kind) if extension_desc.is_list() => {
-                list.iter().all(|value| value.is_valid(&kind))
+                list.iter().all(|value| value.is_valid(kind))
             }
-            (Value::Map(map), Kind::Message(message_desc)) if extension_desc.is_map() => {
+            (Value::Map(map), KindRef::Message(message_desc)) if extension_desc.is_map() => {
                 let key_desc = message_desc.map_entry_key_field().kind();
                 let value_desc = message_desc.map_entry_value_field();
                 map.iter().all(|(key, value)| {
-                    key.is_valid(&key_desc) && value.is_valid_for_field(&value_desc)
+                    key.is_valid(key_desc) && value.is_valid_for_field(value_desc)
                 })
             }
-            (value, kind) => value.is_valid(&kind),
+            (value, kind) => value.is_valid(kind),
         }
     }
 
@@ -438,20 +471,26 @@ impl Value {
     ///
     /// Unlike [`is_valid_for_field`](Value::is_valid_for_field), this method does not
     /// look at field cardinality, so it will never return `true` for lists or maps.
-    pub fn is_valid(&self, kind: &Kind) -> bool {
+    pub fn is_valid<'a>(&self, kind: impl Into<KindRef<'a>>) -> bool {
         matches!(
-            (self, kind),
-            (Value::Bool(_), Kind::Bool)
-                | (Value::I32(_), Kind::Int32 | Kind::Sint32 | Kind::Sfixed32)
-                | (Value::I64(_), Kind::Int64 | Kind::Sint64 | Kind::Sfixed64)
-                | (Value::U32(_), Kind::Uint32 | Kind::Fixed32)
-                | (Value::U64(_), Kind::Uint64 | Kind::Fixed64)
-                | (Value::F32(_), Kind::Float)
-                | (Value::F64(_), Kind::Double)
-                | (Value::String(_), Kind::String)
-                | (Value::Bytes(_), Kind::Bytes)
-                | (Value::EnumNumber(_), Kind::Enum(_))
-                | (Value::Message(_), Kind::Message(_))
+            (self, kind.into()),
+            (Value::Bool(_), KindRef::Bool)
+                | (
+                    Value::I32(_),
+                    KindRef::Int32 | KindRef::Sint32 | KindRef::Sfixed32
+                )
+                | (
+                    Value::I64(_),
+                    KindRef::Int64 | KindRef::Sint64 | KindRef::Sfixed64
+                )
+                | (Value::U32(_), KindRef::Uint32 | KindRef::Fixed32)
+                | (Value::U64(_), KindRef::Uint64 | KindRef::Fixed64)
+                | (Value::F32(_), KindRef::Float)
+                | (Value::F64(_), KindRef::Double)
+                | (Value::String(_), KindRef::String)
+                | (Value::Bytes(_), KindRef::Bytes)
+                | (Value::EnumNumber(_), KindRef::Enum(_))
+                | (Value::Message(_), KindRef::Message(_))
         )
     }
 
@@ -670,14 +709,14 @@ impl MapKey {
     /// # Panics
     ///
     /// Panics if `kind` is not a valid map key type (an integral type or string).
-    pub fn default_value(kind: &Kind) -> Self {
-        match *kind {
-            Kind::Int32 | Kind::Sint32 | Kind::Sfixed32 => MapKey::I32(0),
-            Kind::Int64 | Kind::Sint64 | Kind::Sfixed64 => MapKey::I64(0),
-            Kind::Uint32 | Kind::Fixed32 => MapKey::U32(0),
-            Kind::Uint64 | Kind::Fixed64 => MapKey::U64(0),
-            Kind::Bool => MapKey::Bool(false),
-            Kind::String => MapKey::String(String::default()),
+    pub fn default_value<'a>(kind: impl Into<KindRef<'a>>) -> Self {
+        match kind.into() {
+            KindRef::Int32 | KindRef::Sint32 | KindRef::Sfixed32 => MapKey::I32(0),
+            KindRef::Int64 | KindRef::Sint64 | KindRef::Sfixed64 => MapKey::I64(0),
+            KindRef::Uint32 | KindRef::Fixed32 => MapKey::U32(0),
+            KindRef::Uint64 | KindRef::Fixed64 => MapKey::U64(0),
+            KindRef::Bool => MapKey::Bool(false),
+            KindRef::String => MapKey::String(String::default()),
             _ => panic!("invalid type for map key"),
         }
     }
@@ -687,20 +726,26 @@ impl MapKey {
     /// # Panics
     ///
     /// Panics if `kind` is not a valid map key type (an integral type or string).
-    pub fn is_default(&self, kind: &Kind) -> bool {
+    pub fn is_default<'a>(&self, kind: impl Into<KindRef<'a>>) -> bool {
         *self == MapKey::default_value(kind)
     }
 
     /// Returns `true` if this map key can be encoded as the given [`Kind`].
-    pub fn is_valid(&self, kind: &Kind) -> bool {
+    pub fn is_valid<'a>(&self, kind: impl Into<KindRef<'a>>) -> bool {
         matches!(
-            (self, kind),
-            (MapKey::Bool(_), Kind::Bool)
-                | (MapKey::I32(_), Kind::Int32 | Kind::Sint32 | Kind::Sfixed32)
-                | (MapKey::I64(_), Kind::Int64 | Kind::Sint64 | Kind::Sfixed64)
-                | (MapKey::U32(_), Kind::Uint32 | Kind::Fixed32)
-                | (MapKey::U64(_), Kind::Uint64 | Kind::Fixed64)
-                | (MapKey::String(_), Kind::String)
+            (self, kind.into()),
+            (MapKey::Bool(_), KindRef::Bool)
+                | (
+                    MapKey::I32(_),
+                    KindRef::Int32 | KindRef::Sint32 | KindRef::Sfixed32
+                )
+                | (
+                    MapKey::I64(_),
+                    KindRef::Int64 | KindRef::Sint64 | KindRef::Sfixed64
+                )
+                | (MapKey::U32(_), KindRef::Uint32 | KindRef::Fixed32)
+                | (MapKey::U64(_), KindRef::Uint64 | KindRef::Fixed64)
+                | (MapKey::String(_), KindRef::String)
         )
     }
 

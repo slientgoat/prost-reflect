@@ -5,9 +5,8 @@ use base64::display::Base64Display;
 use serde::ser::{Serialize, SerializeMap, SerializeSeq, Serializer};
 
 use crate::{
-    descriptor::Kind,
     dynamic::{fields::ValueAndDescriptor, serde::SerializeOptions, DynamicMessage, MapKey, Value},
-    ReflectMessage,
+    KindRef, ReflectMessage,
 };
 
 struct SerializeWrapper<'a, T> {
@@ -55,8 +54,8 @@ where
     S: SerializeMap,
 {
     if options.skip_default_fields {
-        for field in value.fields.iter(&value.desc) {
-            let (name, value, ref kind) = match field {
+        for field in value.fields.iter(value.desc.as_ref()) {
+            let (name, value, kind) = match field {
                 ValueAndDescriptor::Field(value, ref field_desc) => {
                     let name = if options.use_proto_field_name {
                         field_desc.name()
@@ -80,8 +79,8 @@ where
             )?;
         }
     } else {
-        for field_desc in value.desc.fields() {
-            if !field_desc.supports_presence() || value.fields.has(&field_desc) {
+        for field_desc in value.desc.as_ref().fields() {
+            if !field_desc.supports_presence() || value.fields.has(field_desc) {
                 let name = if options.use_proto_field_name {
                     field_desc.name()
                 } else {
@@ -92,22 +91,22 @@ where
                     name,
                     &SerializeWrapper {
                         value: &ValueAndKind {
-                            value: value.fields.get(&field_desc).as_ref(),
-                            kind: &field_desc.kind(),
+                            value: value.fields.get(field_desc).as_ref(),
+                            kind: field_desc.kind(),
                         },
                         options,
                     },
                 )?;
             }
         }
-        for extension_desc in value.desc.extensions() {
-            if !extension_desc.supports_presence() || value.fields.has(&extension_desc) {
+        for extension_desc in value.desc.as_ref().extensions() {
+            if !extension_desc.supports_presence() || value.fields.has(extension_desc) {
                 map.serialize_entry(
                     extension_desc.json_name(),
                     &SerializeWrapper {
                         value: &ValueAndKind {
-                            value: value.fields.get(&extension_desc).as_ref(),
-                            kind: &extension_desc.kind(),
+                            value: value.fields.get(extension_desc).as_ref(),
+                            kind: extension_desc.kind(),
                         },
                         options,
                     },
@@ -121,7 +120,7 @@ where
 
 struct ValueAndKind<'a> {
     value: &'a Value,
-    kind: &'a Kind,
+    kind: KindRef<'a>,
 }
 
 impl<'a> Serialize for SerializeWrapper<'a, ValueAndKind<'a>> {
@@ -177,7 +176,7 @@ impl<'a> Serialize for SerializeWrapper<'a, ValueAndKind<'a>> {
             }
             Value::EnumNumber(number) => {
                 let enum_ty = match self.value.kind {
-                    Kind::Enum(enum_ty) => enum_ty,
+                    KindRef::Enum(enum_ty) => enum_ty,
                     _ => panic!(
                         "mismatch between DynamicMessage value {:?} and type {:?}",
                         self.value.value, self.value.kind
@@ -210,7 +209,7 @@ impl<'a> Serialize for SerializeWrapper<'a, ValueAndKind<'a>> {
             }
             Value::Map(values) => {
                 let value_kind = match self.value.kind {
-                    Kind::Message(message) if message.is_map_entry() => {
+                    KindRef::Message(message) if message.is_map_entry() => {
                         message.map_entry_value_field().kind()
                     }
                     _ => panic!(
@@ -229,7 +228,7 @@ impl<'a> Serialize for SerializeWrapper<'a, ValueAndKind<'a>> {
                         &SerializeWrapper {
                             value: &ValueAndKind {
                                 value,
-                                kind: &value_kind,
+                                kind: value_kind,
                             },
                             options: self.options,
                         },

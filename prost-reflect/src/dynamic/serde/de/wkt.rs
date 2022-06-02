@@ -20,12 +20,12 @@ use crate::{
         },
         DynamicMessage,
     },
-    DescriptorPool,
+    DescriptorPoolRef,
 };
 
 use super::{deserialize_message, kind::MessageVisitorInner, MessageSeed};
 
-pub struct GoogleProtobufAnyVisitor<'a>(pub DescriptorPool, pub &'a DeserializeOptions);
+pub struct GoogleProtobufAnyVisitor<'a>(pub DescriptorPoolRef<'a>, pub &'a DeserializeOptions);
 pub struct GoogleProtobufNullVisitor;
 pub struct GoogleProtobufTimestampVisitor;
 pub struct GoogleProtobufDurationVisitor;
@@ -69,13 +69,15 @@ impl<'a, 'de> Visitor<'de> for GoogleProtobufAnyVisitor<'a> {
 
             let payload_message = if is_well_known_type(message_name) {
                 let payload_message = match buffered_entries.remove("value") {
-                    Some(value) => {
-                        deserialize_message(&message_desc, value, self.1).map_err(Error::custom)?
-                    }
+                    Some(value) => deserialize_message(message_desc.to_owned(), value, self.1)
+                        .map_err(Error::custom)?,
                     None => loop {
                         match map.next_key::<Cow<str>>()? {
                             Some(key) if key == "value" => {
-                                break map.next_value_seed(MessageSeed(&message_desc, self.1))?
+                                break map.next_value_seed(MessageSeed(
+                                    message_desc.to_owned(),
+                                    self.1,
+                                ))?
                             }
                             Some(key) => {
                                 if self.1.deny_unknown_fields {
@@ -106,7 +108,7 @@ impl<'a, 'de> Visitor<'de> for GoogleProtobufAnyVisitor<'a> {
 
                 payload_message
             } else {
-                let mut payload_message = DynamicMessage::new(message_desc);
+                let mut payload_message = DynamicMessage::new(message_desc.to_owned());
 
                 buffered_entries
                     .into_deserializer()

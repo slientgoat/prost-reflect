@@ -8,8 +8,8 @@ pub use self::{
     ty::{
         Cardinality, EnumDescriptor, EnumDescriptorRef, EnumValueDescriptor,
         EnumValueDescriptorRef, ExtensionDescriptor, ExtensionDescriptorRef, FieldDescriptor,
-        FieldDescriptorRef, Kind, MessageDescriptor, MessageDescriptorRef, OneofDescriptor,
-        OneofDescriptorRef,
+        FieldDescriptorRef, Kind, KindRef, MessageDescriptor, MessageDescriptorRef,
+        OneofDescriptor, OneofDescriptorRef,
     },
 };
 
@@ -647,6 +647,34 @@ fn parse_name(full_name: &str) -> &str {
         None => full_name,
     }
 }
+
+macro_rules! impl_from_for_ref {
+    ($owned:ty => $ref:ident) => {
+        impl<'a> From<&'a $owned> for $ref<'a> {
+            fn from(value: &'a $owned) -> Self {
+                value.as_ref()
+            }
+        }
+
+        impl<'a> From<$ref<'a>> for $owned {
+            fn from(value: $ref<'a>) -> Self {
+                value.to_owned()
+            }
+        }
+    };
+}
+
+impl_from_for_ref!(DescriptorPool => DescriptorPoolRef);
+impl_from_for_ref!(FileDescriptor => FileDescriptorRef);
+impl_from_for_ref!(ServiceDescriptor => ServiceDescriptorRef);
+impl_from_for_ref!(MethodDescriptor => MethodDescriptorRef);
+impl_from_for_ref!(MessageDescriptor => MessageDescriptorRef);
+impl_from_for_ref!(FieldDescriptor => FieldDescriptorRef);
+impl_from_for_ref!(ExtensionDescriptor => ExtensionDescriptorRef);
+impl_from_for_ref!(EnumDescriptor => EnumDescriptorRef);
+impl_from_for_ref!(EnumValueDescriptor => EnumValueDescriptorRef);
+impl_from_for_ref!(OneofDescriptor => OneofDescriptorRef);
+impl_from_for_ref!(Kind => KindRef);
 
 fn debug_fmt_iter<I>(i: I) -> impl fmt::Debug
 where

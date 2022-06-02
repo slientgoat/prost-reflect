@@ -5,14 +5,14 @@ use serde::de::{DeserializeSeed, Deserializer, Error, IgnoredAny, MapAccess, Seq
 
 use crate::{
     dynamic::{serde::DeserializeOptions, DynamicMessage, MapKey, Value},
-    EnumDescriptor, Kind, MessageDescriptor, ReflectMessage,
+    EnumDescriptorRef, KindRef, MessageDescriptor, ReflectMessage,
 };
 
 use super::{
     deserialize_enum, deserialize_message, FieldDescriptorSeed, OptionalFieldDescriptorSeed,
 };
 
-pub struct KindSeed<'a>(pub &'a Kind, pub &'a DeserializeOptions);
+pub struct KindSeed<'a>(pub KindRef<'a>, pub &'a DeserializeOptions);
 
 impl<'a, 'de> DeserializeSeed<'de> for KindSeed<'a> {
     type Value = Value;
@@ -22,35 +22,35 @@ impl<'a, 'de> DeserializeSeed<'de> for KindSeed<'a> {
         D: Deserializer<'de>,
     {
         match self.0 {
-            Kind::Double => deserializer.deserialize_any(DoubleVisitor).map(Value::F64),
-            Kind::Float => deserializer.deserialize_any(FloatVisitor).map(Value::F32),
-            Kind::Int32 | Kind::Sint32 | Kind::Sfixed32 => {
+            KindRef::Double => deserializer.deserialize_any(DoubleVisitor).map(Value::F64),
+            KindRef::Float => deserializer.deserialize_any(FloatVisitor).map(Value::F32),
+            KindRef::Int32 | KindRef::Sint32 | KindRef::Sfixed32 => {
                 deserializer.deserialize_any(Int32Visitor).map(Value::I32)
             }
-            Kind::Int64 | Kind::Sint64 | Kind::Sfixed64 => {
+            KindRef::Int64 | KindRef::Sint64 | KindRef::Sfixed64 => {
                 deserializer.deserialize_any(Int64Visitor).map(Value::I64)
             }
-            Kind::Uint32 | Kind::Fixed32 => {
+            KindRef::Uint32 | KindRef::Fixed32 => {
                 deserializer.deserialize_any(Uint32Visitor).map(Value::U32)
             }
-            Kind::Uint64 | Kind::Fixed64 => {
+            KindRef::Uint64 | KindRef::Fixed64 => {
                 deserializer.deserialize_any(Uint64Visitor).map(Value::U64)
             }
-            Kind::Bool => deserializer.deserialize_any(BoolVisitor).map(Value::Bool),
-            Kind::String => deserializer
+            KindRef::Bool => deserializer.deserialize_any(BoolVisitor).map(Value::Bool),
+            KindRef::String => deserializer
                 .deserialize_string(StringVisitor)
                 .map(Value::String),
-            Kind::Bytes => deserializer.deserialize_str(BytesVisitor).map(Value::Bytes),
-            Kind::Message(desc) => {
-                deserialize_message(desc, deserializer, self.1).map(Value::Message)
+            KindRef::Bytes => deserializer.deserialize_str(BytesVisitor).map(Value::Bytes),
+            KindRef::Message(desc) => {
+                deserialize_message(desc.to_owned(), deserializer, self.1).map(Value::Message)
             }
-            Kind::Enum(desc) => deserialize_enum(desc, deserializer).map(Value::EnumNumber),
+            KindRef::Enum(desc) => deserialize_enum(desc, deserializer).map(Value::EnumNumber),
         }
     }
 }
 
-pub struct ListVisitor<'a>(pub &'a Kind, pub &'a DeserializeOptions);
-pub struct MapVisitor<'a>(pub &'a Kind, pub &'a DeserializeOptions);
+pub struct ListVisitor<'a>(pub KindRef<'a>, pub &'a DeserializeOptions);
+pub struct MapVisitor<'a>(pub KindRef<'a>, pub &'a DeserializeOptions);
 pub struct DoubleVisitor;
 pub struct FloatVisitor;
 pub struct Int32Visitor;
@@ -60,9 +60,9 @@ pub struct Uint64Visitor;
 pub struct StringVisitor;
 pub struct BoolVisitor;
 pub struct BytesVisitor;
-pub struct MessageVisitor<'a>(pub &'a MessageDescriptor, pub &'a DeserializeOptions);
+pub struct MessageVisitor<'a>(pub MessageDescriptor, pub &'a DeserializeOptions);
 pub struct MessageVisitorInner<'a>(pub &'a mut DynamicMessage, pub &'a DeserializeOptions);
-pub struct EnumVisitor<'a>(pub &'a EnumDescriptor);
+pub struct EnumVisitor<'a>(pub EnumDescriptorRef<'a>);
 
 impl<'a, 'de> Visitor<'de> for ListVisitor<'a> {
     type Value = Vec<Value>;
@@ -105,26 +105,26 @@ impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
 
         while let Some(key_str) = map.next_key::<Cow<str>>()? {
             let key = match key_kind {
-                Kind::Int32 | Kind::Sint32 | Kind::Sfixed32 => {
+                KindRef::Int32 | KindRef::Sint32 | KindRef::Sfixed32 => {
                     MapKey::I32(i32::from_str(key_str.as_ref()).map_err(Error::custom)?)
                 }
-                Kind::Int64 | Kind::Sint64 | Kind::Sfixed64 => {
+                KindRef::Int64 | KindRef::Sint64 | KindRef::Sfixed64 => {
                     MapKey::I64(i64::from_str(key_str.as_ref()).map_err(Error::custom)?)
                 }
-                Kind::Uint32 | Kind::Fixed32 => {
+                KindRef::Uint32 | KindRef::Fixed32 => {
                     MapKey::U32(u32::from_str(key_str.as_ref()).map_err(Error::custom)?)
                 }
-                Kind::Uint64 | Kind::Fixed64 => {
+                KindRef::Uint64 | KindRef::Fixed64 => {
                     MapKey::U64(u64::from_str(key_str.as_ref()).map_err(Error::custom)?)
                 }
-                Kind::Bool => {
+                KindRef::Bool => {
                     MapKey::Bool(bool::from_str(key_str.as_ref()).map_err(Error::custom)?)
                 }
-                Kind::String => MapKey::String(key_str.into_owned()),
+                KindRef::String => MapKey::String(key_str.into_owned()),
                 _ => unreachable!("invalid type for map key"),
             };
 
-            let value = map.next_value_seed(FieldDescriptorSeed(&value_desc, self.1))?;
+            let value = map.next_value_seed(FieldDescriptorSeed(value_desc, self.1))?;
 
             result.insert(key, value);
         }
@@ -519,7 +519,7 @@ impl<'a, 'de> Visitor<'de> for MessageVisitor<'a> {
     where
         A: MapAccess<'de>,
     {
-        let mut message = DynamicMessage::new(self.0.clone());
+        let mut message = DynamicMessage::new(self.0.to_owned());
 
         MessageVisitorInner(&mut message, self.1).visit_map(map)?;
 
@@ -539,17 +539,18 @@ impl<'a, 'de> Visitor<'de> for MessageVisitorInner<'a> {
         A: MapAccess<'de>,
     {
         let desc = self.0.descriptor();
+        let desc = desc.as_ref();
         while let Some(key) = map.next_key::<Cow<str>>()? {
             if let Some(field) = desc
                 .get_field_by_json_name(key.as_ref())
                 .or_else(|| desc.get_field_by_name(key.as_ref()))
             {
                 if let Some(value) =
-                    map.next_value_seed(OptionalFieldDescriptorSeed(&field, self.1))?
+                    map.next_value_seed(OptionalFieldDescriptorSeed(field, self.1))?
                 {
                     if let Some(oneof_desc) = field.containing_oneof() {
                         for field in oneof_desc.fields() {
-                            if self.0.has_field(&field) {
+                            if self.0.has_field(field) {
                                 return Err(Error::custom(format!(
                                     "multiple fields provided for oneof '{}'",
                                     oneof_desc.name()
@@ -558,13 +559,13 @@ impl<'a, 'de> Visitor<'de> for MessageVisitorInner<'a> {
                         }
                     }
 
-                    self.0.set_field(&field, value);
+                    self.0.set_field(field, value);
                 }
             } else if let Some(extension_desc) = desc.get_extension_by_json_name(key.as_ref()) {
                 if let Some(value) =
-                    map.next_value_seed(OptionalFieldDescriptorSeed(&extension_desc, self.1))?
+                    map.next_value_seed(OptionalFieldDescriptorSeed(extension_desc, self.1))?
                 {
-                    self.0.set_extension(&extension_desc, value);
+                    self.0.set_extension(extension_desc, value);
                 }
             } else if self.1.deny_unknown_fields {
                 return Err(Error::custom(format!("unrecognized field name '{}'", key)));

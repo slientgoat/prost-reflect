@@ -5,19 +5,20 @@ use std::{
 };
 
 use crate::{
-    ExtensionDescriptor, FieldDescriptor, Kind, MessageDescriptor, OneofDescriptor, Value,
+    ExtensionDescriptorRef, FieldDescriptorRef, KindRef, MessageDescriptorRef, OneofDescriptorRef,
+    Value,
 };
 
 use super::unknown::UnknownField;
 
-pub(super) trait FieldDescriptorLike: fmt::Debug {
+pub(super) trait FieldDescriptorLike<'a>: Copy + fmt::Debug {
     fn number(&self) -> u32;
     fn default_value(&self) -> Value;
     fn is_default_value(&self, value: &Value) -> bool;
     fn is_valid(&self, value: &Value) -> bool;
-    fn containing_oneof(&self) -> Option<OneofDescriptor>;
+    fn containing_oneof(&self) -> Option<OneofDescriptorRef<'a>>;
     fn supports_presence(&self) -> bool;
-    fn kind(&self) -> Kind;
+    fn kind(&self) -> KindRef<'a>;
     fn is_group(&self) -> bool;
     fn is_list(&self) -> bool;
     fn is_map(&self) -> bool;
@@ -41,8 +42,8 @@ pub(super) enum ValueOrUnknown {
 }
 
 pub(super) enum ValueAndDescriptor<'a> {
-    Field(&'a Value, FieldDescriptor),
-    Extension(&'a Value, ExtensionDescriptor),
+    Field(&'a Value, FieldDescriptorRef<'a>),
+    Extension(&'a Value, ExtensionDescriptorRef<'a>),
     Unknown(u32, &'a [UnknownField]),
 }
 
@@ -54,20 +55,20 @@ impl DynamicMessageFieldSet {
         }
     }
 
-    pub(super) fn has(&self, desc: &impl FieldDescriptorLike) -> bool {
+    pub(super) fn has<'a>(&self, desc: impl FieldDescriptorLike<'a>) -> bool {
         self.get_value(desc.number())
             .map(|value| desc.has(value))
             .unwrap_or(false)
     }
 
-    pub(super) fn get(&self, desc: &impl FieldDescriptorLike) -> Cow<'_, Value> {
+    pub(super) fn get<'a>(&self, desc: impl FieldDescriptorLike<'a>) -> Cow<'_, Value> {
         match self.get_value(desc.number()) {
             Some(value) => Cow::Borrowed(value),
             None => Cow::Owned(desc.default_value()),
         }
     }
 
-    pub(super) fn get_mut(&mut self, desc: &impl FieldDescriptorLike) -> &mut Value {
+    pub(super) fn get_mut<'a>(&mut self, desc: impl FieldDescriptorLike<'a>) -> &mut Value {
         self.clear_oneof_fields(desc);
         match self.fields.entry(desc.number()) {
             btree_map::Entry::Occupied(entry) => match entry.into_mut() {
@@ -83,7 +84,7 @@ impl DynamicMessageFieldSet {
         }
     }
 
-    pub(super) fn set(&mut self, desc: &impl FieldDescriptorLike, value: Value) {
+    pub(super) fn set<'a>(&mut self, desc: impl FieldDescriptorLike<'a>, value: Value) {
         debug_assert!(
             desc.is_valid(&value),
             "invalid value {:?} for field {:?}",
@@ -96,11 +97,11 @@ impl DynamicMessageFieldSet {
             .insert(desc.number(), ValueOrUnknown::Value(value));
     }
 
-    fn clear_oneof_fields(&mut self, desc: &impl FieldDescriptorLike) {
+    fn clear_oneof_fields<'a>(&mut self, desc: impl FieldDescriptorLike<'a>) {
         if let Some(oneof_desc) = desc.containing_oneof() {
             for oneof_field in oneof_desc.fields() {
                 if oneof_field.number() != desc.number() {
-                    self.clear(&oneof_field);
+                    self.clear(oneof_field);
                 }
             }
         }
@@ -120,13 +121,13 @@ impl DynamicMessageFieldSet {
         }
     }
 
-    pub(super) fn clear(&mut self, desc: &impl FieldDescriptorLike) {
+    pub(super) fn clear<'a>(&mut self, desc: impl FieldDescriptorLike<'a>) {
         self.fields.remove(&desc.number());
     }
 
     pub(crate) fn iter<'a>(
         &'a self,
-        message: &'a MessageDescriptor,
+        message: MessageDescriptorRef<'a>,
     ) -> impl Iterator<Item = ValueAndDescriptor> + 'a {
         self.fields
             .iter()
@@ -168,24 +169,24 @@ impl ValueOrUnknown {
     }
 }
 
-impl FieldDescriptorLike for FieldDescriptor {
+impl<'a> FieldDescriptorLike<'a> for FieldDescriptorRef<'a> {
     fn number(&self) -> u32 {
         self.number()
     }
 
     fn default_value(&self) -> Value {
-        Value::default_value_for_field(self)
+        Value::default_value_for_field(*self)
     }
 
     fn is_default_value(&self, value: &Value) -> bool {
-        value.is_default_for_field(self)
+        value.is_default_for_field(*self)
     }
 
     fn is_valid(&self, value: &Value) -> bool {
-        value.is_valid_for_field(self)
+        value.is_valid_for_field(*self)
     }
 
-    fn containing_oneof(&self) -> Option<OneofDescriptor> {
+    fn containing_oneof(&self) -> Option<OneofDescriptorRef<'a>> {
         self.containing_oneof()
     }
 
@@ -193,7 +194,7 @@ impl FieldDescriptorLike for FieldDescriptor {
         self.supports_presence()
     }
 
-    fn kind(&self) -> Kind {
+    fn kind(&self) -> KindRef<'a> {
         self.kind()
     }
 
@@ -218,24 +219,24 @@ impl FieldDescriptorLike for FieldDescriptor {
     }
 }
 
-impl FieldDescriptorLike for ExtensionDescriptor {
+impl<'a> FieldDescriptorLike<'a> for ExtensionDescriptorRef<'a> {
     fn number(&self) -> u32 {
         self.number()
     }
 
     fn default_value(&self) -> Value {
-        Value::default_value_for_extension(self)
+        Value::default_value_for_extension(*self)
     }
 
     fn is_default_value(&self, value: &Value) -> bool {
-        value.is_default_for_extension(self)
+        value.is_default_for_extension(*self)
     }
 
     fn is_valid(&self, value: &Value) -> bool {
-        value.is_valid_for_extension(self)
+        value.is_valid_for_extension(*self)
     }
 
-    fn containing_oneof(&self) -> Option<OneofDescriptor> {
+    fn containing_oneof(&self) -> Option<OneofDescriptorRef<'a>> {
         None
     }
 
@@ -243,7 +244,7 @@ impl FieldDescriptorLike for ExtensionDescriptor {
         self.supports_presence()
     }
 
-    fn kind(&self) -> Kind {
+    fn kind(&self) -> KindRef<'a> {
         self.kind()
     }
 
