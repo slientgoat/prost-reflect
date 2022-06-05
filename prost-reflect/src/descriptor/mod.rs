@@ -37,7 +37,7 @@ pub struct DescriptorPool {
     inner: Arc<DescriptorPoolInner>,
 }
 
-/// A borrowed version of [`DescriptorPool``].
+/// A borrowed [`DescriptorPool`].
 #[derive(Copy, Clone)]
 pub struct DescriptorPoolRef<'a> {
     inner: &'a Arc<DescriptorPoolInner>,
@@ -58,7 +58,7 @@ pub struct FileDescriptor {
     index: FileIndex,
 }
 
-#[doc(hidden)]
+/// A borrowed [`FileDescriptor`].
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct FileDescriptorRef<'a> {
     pool: DescriptorPoolRef<'a>,
@@ -269,16 +269,19 @@ impl DescriptorPool {
 }
 
 impl<'a> DescriptorPoolRef<'a> {
+    /// Converts this reference into an owned [`DescriptorPool`].
     pub fn to_owned(self) -> DescriptorPool {
         DescriptorPool {
             inner: self.inner.to_owned(),
         }
     }
 
+    /// Reference wrapper for [`DescriptorPool::files`].
     pub fn files(&self) -> impl ExactSizeIterator<Item = FileDescriptorRef<'a>> + 'a {
         FileDescriptorRef::iter(*self)
     }
 
+    /// Reference wrapper for [`DescriptorPool::get_file_by_name`].
     pub fn get_file_by_name(&self, name: &str) -> Option<FileDescriptorRef<'a>> {
         self.inner
             .file_names
@@ -286,33 +289,40 @@ impl<'a> DescriptorPoolRef<'a> {
             .map(|&index| FileDescriptorRef::new(*self, index as _))
     }
 
+    /// Reference wrapper for [`DescriptorPool::file_descriptor_protos`].
     pub fn file_descriptor_protos(
         &self,
     ) -> impl ExactSizeIterator<Item = &'a FileDescriptorProto> + 'a {
         self.inner.files.iter().map(|f| &f.raw)
     }
 
+    /// Reference wrapper for [`DescriptorPool::services`].
     pub fn services(&self) -> impl ExactSizeIterator<Item = ServiceDescriptorRef<'a>> + 'a {
         let this = *self;
         (0..self.inner.services.len()).map(move |index| ServiceDescriptorRef::new(this, index))
     }
 
+    /// Reference wrapper for [`DescriptorPool::all_messages`].
     pub fn all_messages(&self) -> impl ExactSizeIterator<Item = MessageDescriptorRef<'a>> + 'a {
         MessageDescriptorRef::iter(*self)
     }
 
+    /// Reference wrapper for [`DescriptorPool::all_enums`].
     pub fn all_enums(&self) -> impl ExactSizeIterator<Item = EnumDescriptorRef<'a>> + 'a {
         EnumDescriptorRef::iter(*self)
     }
 
+    /// Reference wrapper for [`DescriptorPool::all_extensions`].
     pub fn all_extensions(&self) -> impl ExactSizeIterator<Item = ExtensionDescriptorRef<'a>> + 'a {
         ExtensionDescriptorRef::iter(*self)
     }
 
+    /// Reference wrapper for [`DescriptorPool::get_message_by_name`].
     pub fn get_message_by_name(&self, name: &str) -> Option<MessageDescriptorRef<'a>> {
         MessageDescriptorRef::try_get_by_name(*self, name)
     }
 
+    /// Reference wrapper for [`DescriptorPool::get_enum_by_name`].
     pub fn get_enum_by_name(&self, name: &str) -> Option<EnumDescriptorRef<'a>> {
         EnumDescriptorRef::try_get_by_name(*self, name)
     }
@@ -395,11 +405,11 @@ impl<'a> Eq for DescriptorPoolRef<'a> {}
 impl<'a> fmt::Debug for DescriptorPoolRef<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DescriptorPool")
-            // .field("files", &debug_fmt_iter(self.files()))
-            // .field("services", &debug_fmt_iter(self.services()))
-            // .field("all_messages", &debug_fmt_iter(self.all_messages()))
-            // .field("all_enums", &debug_fmt_iter(self.all_enums()))
-            // .field("all_extensions", &debug_fmt_iter(self.all_extensions()))
+            .field("files", &debug_fmt_iter(self.files()))
+            .field("services", &debug_fmt_iter(self.services()))
+            .field("all_messages", &debug_fmt_iter(self.all_messages()))
+            .field("all_enums", &debug_fmt_iter(self.all_enums()))
+            .field("all_extensions", &debug_fmt_iter(self.all_extensions()))
             .finish()
     }
 }
@@ -498,6 +508,7 @@ impl FileDescriptor {
 }
 
 impl<'a> FileDescriptorRef<'a> {
+    /// Reference wrapper for [`FileDescriptor::new`].
     pub fn new(descriptor_pool: DescriptorPoolRef<'a>, index: usize) -> Self {
         FileDescriptorRef {
             pool: descriptor_pool,
@@ -505,6 +516,7 @@ impl<'a> FileDescriptorRef<'a> {
         }
     }
 
+    /// Converts this reference into an owned [`FileDescriptor`].
     pub fn to_owned(self) -> FileDescriptor {
         FileDescriptor {
             pool: self.pool.to_owned(),
@@ -518,26 +530,32 @@ impl<'a> FileDescriptorRef<'a> {
         (0..pool.inner.files.len()).map(move |index| FileDescriptorRef::new(pool, index))
     }
 
+    /// Reference wrapper for [`FileDescriptor::parent_pool`].
     pub fn parent_pool(&self) -> DescriptorPoolRef<'a> {
         self.pool
     }
 
+    /// Reference wrapper for [`FileDescriptor::name`].
     pub fn name(&self) -> &'a str {
         self.file_descriptor_proto().name()
     }
 
+    /// Reference wrapper for [`FileDescriptor::package_name`].
     pub fn package_name(&self) -> &'a str {
         self.file_descriptor_proto().package()
     }
 
+    /// Reference wrapper for [`FileDescriptor::index`].
     pub fn index(&self) -> usize {
         self.index as usize
     }
 
+    /// Reference wrapper for [`FileDescriptor::syntax`].
     pub fn syntax(&self) -> Syntax {
         self.file_inner().syntax
     }
 
+    /// Reference wrapper for [`FileDescriptor::dependencies`].
     pub fn dependencies(&self) -> impl ExactSizeIterator<Item = FileDescriptorRef<'a>> + 'a {
         let pool = self.parent_pool();
         let raw = self.file_descriptor_proto();
@@ -547,6 +565,7 @@ impl<'a> FileDescriptorRef<'a> {
         })
     }
 
+    /// Reference wrapper for [`FileDescriptor::messages`].
     pub fn messages(&self) -> impl ExactSizeIterator<Item = MessageDescriptorRef<'a>> + 'a {
         let pool = self.parent_pool();
         let raw_file = self.file_descriptor_proto();
@@ -556,6 +575,7 @@ impl<'a> FileDescriptorRef<'a> {
         })
     }
 
+    /// Reference wrapper for [`FileDescriptor::enums`].
     pub fn enums(&self) -> impl ExactSizeIterator<Item = EnumDescriptorRef<'a>> + 'a {
         let pool = self.parent_pool();
         let raw_file = self.file_descriptor_proto();
@@ -565,6 +585,7 @@ impl<'a> FileDescriptorRef<'a> {
         })
     }
 
+    /// Reference wrapper for [`FileDescriptor::extensions`].
     pub fn extensions(&self) -> impl ExactSizeIterator<Item = ExtensionDescriptorRef<'a>> + 'a {
         let pool = self.parent_pool();
         let raw_file = self.file_descriptor_proto();
@@ -580,6 +601,7 @@ impl<'a> FileDescriptorRef<'a> {
         })
     }
 
+    /// Reference wrapper for [`FileDescriptor::services`].
     pub fn services(&self) -> impl ExactSizeIterator<Item = ServiceDescriptorRef<'a>> + 'a {
         let pool = self.parent_pool();
         self.file_inner()
@@ -588,6 +610,7 @@ impl<'a> FileDescriptorRef<'a> {
             .map(move |index| ServiceDescriptorRef::new(pool, index as usize))
     }
 
+    /// Reference wrapper for [`FileDescriptor::file_descriptor_proto`].
     pub fn file_descriptor_proto(&self) -> &'a FileDescriptorProto {
         &self.file_inner().raw
     }

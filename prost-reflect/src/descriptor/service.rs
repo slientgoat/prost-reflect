@@ -15,6 +15,7 @@ pub struct ServiceDescriptor {
     index: ServiceIndex,
 }
 
+/// A borrowed [`ServiceDescriptor`].
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ServiceDescriptorRef<'a> {
     pool: DescriptorPoolRef<'a>,
@@ -35,6 +36,7 @@ pub struct MethodDescriptor {
     index: MethodIndex,
 }
 
+/// A borrowed [`MethodDescriptorRef`].
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct MethodDescriptorRef<'a> {
     service: ServiceDescriptorRef<'a>,
@@ -112,6 +114,7 @@ impl ServiceDescriptor {
 }
 
 impl<'a> ServiceDescriptorRef<'a> {
+    /// Reference wrapper for [`ServiceDescriptor::new`].
     pub fn new(pool: DescriptorPoolRef<'a>, index: usize) -> Self {
         debug_assert!(index < pool.services().len());
         ServiceDescriptorRef {
@@ -120,6 +123,7 @@ impl<'a> ServiceDescriptorRef<'a> {
         }
     }
 
+    /// Converts this reference into an owned [`ServiceDescriptor`].
     pub fn to_owned(self) -> ServiceDescriptor {
         ServiceDescriptor {
             pool: self.pool.to_owned(),
@@ -127,30 +131,37 @@ impl<'a> ServiceDescriptorRef<'a> {
         }
     }
 
+    /// Reference wrapper for [`ServiceDescriptor::index`].
     pub fn index(&self) -> usize {
         self.index as usize
     }
 
+    /// Reference wrapper for [`ServiceDescriptor::parent_pool`].
     pub fn parent_pool(&self) -> DescriptorPoolRef<'a> {
         self.pool
     }
 
+    /// Reference wrapper for [`ServiceDescriptor::parent_file`].
     pub fn parent_file(&self) -> FileDescriptorRef<'a> {
         FileDescriptorRef::new(self.pool, self.inner().file as _)
     }
 
+    /// Reference wrapper for [`ServiceDescriptor::name`].
     pub fn name(&self) -> &'a str {
         parse_name(self.full_name())
     }
 
+    /// Reference wrapper for [`ServiceDescriptor::full_name`].
     pub fn full_name(&self) -> &'a str {
         &self.inner().full_name
     }
 
+    /// Reference wrapper for [`ServiceDescriptor::package_name`].
     pub fn package_name(&self) -> &'a str {
         parse_namespace(self.full_name())
     }
 
+    /// Reference wrapper for [`ServiceDescriptor::service_descriptor_proto`].
     pub fn service_descriptor_proto(&self) -> &'a ServiceDescriptorProto {
         let name = self.name();
         let package = self.package_name();
@@ -162,6 +173,7 @@ impl<'a> ServiceDescriptorRef<'a> {
             .expect("service proto not found")
     }
 
+    /// Reference wrapper for [`ServiceDescriptor::methods`].
     pub fn methods(&self) -> impl ExactSizeIterator<Item = MethodDescriptorRef<'a>> + 'a {
         let this = *self;
         (0..self.inner().methods.len()).map(move |index| MethodDescriptorRef::new(this, index))
@@ -293,6 +305,7 @@ impl MethodDescriptor {
 }
 
 impl<'a> MethodDescriptorRef<'a> {
+    /// Reference wrapper for [`MethodDescriptor::new`].
     pub fn new(service: ServiceDescriptorRef<'a>, index: usize) -> Self {
         debug_assert!(index < service.methods().len());
         MethodDescriptorRef {
@@ -301,6 +314,7 @@ impl<'a> MethodDescriptorRef<'a> {
         }
     }
 
+    /// Converts this reference into an owned [`MethodDescriptor`].
     pub fn to_owned(self) -> MethodDescriptor {
         MethodDescriptor {
             service: self.service.to_owned(),
@@ -308,46 +322,57 @@ impl<'a> MethodDescriptorRef<'a> {
         }
     }
 
+    /// Reference wrapper for [`MethodDescriptor::index`].
     pub fn index(&self) -> usize {
         self.index as usize
     }
 
+    /// Reference wrapper for [`MethodDescriptor::parent_service`].
     pub fn parent_service(&self) -> ServiceDescriptorRef<'a> {
         self.service
     }
 
+    /// Reference wrapper for [`MethodDescriptor::parent_pool`].
     pub fn parent_pool(&self) -> DescriptorPoolRef<'a> {
         self.service.parent_pool()
     }
 
+    /// Reference wrapper for [`MethodDescriptor::parent_file`].
     pub fn parent_file(&self) -> FileDescriptorRef<'a> {
         self.service.parent_file()
     }
 
+    /// Reference wrapper for [`MethodDescriptor::name`].
     pub fn name(&self) -> &'a str {
         parse_name(self.full_name())
     }
 
+    /// Reference wrapper for [`MethodDescriptor::full_name`].
     pub fn full_name(&self) -> &'a str {
         &self.inner().full_name
     }
 
+    /// Reference wrapper for [`MethodDescriptor::method_descriptor_proto`].
     pub fn method_descriptor_proto(&self) -> &'a MethodDescriptorProto {
         &self.parent_service().service_descriptor_proto().method[self.index as usize]
     }
 
+    /// Reference wrapper for [`MethodDescriptor::input`].
     pub fn input(&self) -> MessageDescriptorRef<'a> {
         MessageDescriptorRef::new(self.parent_pool(), self.inner().request_ty)
     }
 
+    /// Reference wrapper for [`MethodDescriptor::output`].
     pub fn output(&self) -> MessageDescriptorRef<'a> {
         MessageDescriptorRef::new(self.parent_pool(), self.inner().response_ty)
     }
 
+    /// Reference wrapper for [`MethodDescriptor::is_client_streaming`].
     pub fn is_client_streaming(&self) -> bool {
         self.inner().client_streaming
     }
 
+    /// Reference wrapper for [`MethodDescriptor::is_server_streaming`].
     pub fn is_server_streaming(&self) -> bool {
         self.inner().server_streaming
     }

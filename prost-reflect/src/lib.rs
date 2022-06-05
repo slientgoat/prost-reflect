@@ -6,8 +6,7 @@
 #![cfg_attr(feature = "derive", doc = "# Implementing [`ReflectMessage`]")]
 #![cfg_attr(feature = "derive", doc = include_str!("../doc/reflect.md"))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![warn(missing_debug_implementations)]
-// #![warn(missing_docs)]
+#![warn(missing_debug_implementations, missing_docs)]
 #![deny(unsafe_code)]
 #![doc(html_root_url = "https://docs.rs/prost-reflect/0.8.1/")]
 

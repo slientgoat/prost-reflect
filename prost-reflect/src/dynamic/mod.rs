@@ -102,7 +102,7 @@ impl DynamicMessage {
 
     /// Returns `true` if this message has the given field set.
     ///
-    /// If the field type supports distinguishing whether a value has been set (see [`supports_presence`][FieldDescriptor::supports_presence]),
+    /// If the field type supports distinguishing whether a value has been set (see [`supports_presence`][crate::FieldDescriptor::supports_presence]),
     /// such as for messages, then this method returns `true` only if a value has been set. For
     /// other types, such as integers, it returns `true` if the value is set to a non-default value.
     ///
@@ -467,7 +467,7 @@ impl Value {
         }
     }
 
-    /// Returns `true` if this value can be encoded as the given [`Kind`].
+    /// Returns `true` if this value can be encoded as the given [`Kind`][crate::Kind].
     ///
     /// Unlike [`is_valid_for_field`](Value::is_valid_for_field), this method does not
     /// look at field cardinality, so it will never return `true` for lists or maps.
@@ -730,7 +730,7 @@ impl MapKey {
         *self == MapKey::default_value(kind)
     }
 
-    /// Returns `true` if this map key can be encoded as the given [`Kind`].
+    /// Returns `true` if this map key can be encoded as the given [`Kind`][crate::Kind].
     pub fn is_valid<'a>(&self, kind: impl Into<KindRef<'a>>) -> bool {
         matches!(
             (self, kind.into()),

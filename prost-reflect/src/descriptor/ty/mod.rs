@@ -43,6 +43,7 @@ pub struct MessageDescriptor {
     index: MessageIndex,
 }
 
+/// A borrowed [`MessageDescriptor`].
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct MessageDescriptorRef<'a> {
     pool: DescriptorPoolRef<'a>,
@@ -69,6 +70,7 @@ pub struct OneofDescriptor {
     index: OneofIndex,
 }
 
+/// A borrowed [`OneofDescriptor`].
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct OneofDescriptorRef<'a> {
     message: MessageDescriptorRef<'a>,
@@ -89,6 +91,7 @@ pub struct FieldDescriptor {
     field: u32,
 }
 
+/// A borrowed [`FieldDescriptor`].
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct FieldDescriptorRef<'a> {
     message: MessageDescriptorRef<'a>,
@@ -116,6 +119,7 @@ pub struct ExtensionDescriptor {
     index: ExtensionIndex,
 }
 
+/// A borrowed [`ExtensionDescriptor`].
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ExtensionDescriptorRef<'a> {
     pool: DescriptorPoolRef<'a>,
@@ -139,6 +143,7 @@ pub struct EnumDescriptor {
     index: EnumIndex,
 }
 
+/// A borrowed [`EnumDescriptor`].
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct EnumDescriptorRef<'a> {
     pool: DescriptorPoolRef<'a>,
@@ -162,6 +167,7 @@ pub struct EnumValueDescriptor {
     index: EnumValueIndex,
 }
 
+/// A borrowed [`EnumValueDescriptor`].
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct EnumValueDescriptorRef<'a> {
     parent: EnumDescriptorRef<'a>,
@@ -214,6 +220,7 @@ pub enum Kind {
     Enum(EnumDescriptor),
 }
 
+/// A borrowed [`Kind`].
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum KindRef<'a> {
     /// The protobuf `double` type.
@@ -270,7 +277,7 @@ enum ParentKind {
 }
 
 impl MessageDescriptor {
-    /// Gets a [`MessageDescriptorRef`] referencing this method.
+    /// Gets a [`MessageDescriptorRef`] referencing this message.
     pub fn as_ref(&self) -> MessageDescriptorRef<'_> {
         MessageDescriptorRef {
             pool: self.pool.as_ref(),
@@ -475,6 +482,7 @@ impl<'a> MessageDescriptorRef<'a> {
         Some(MessageDescriptorRef::new(pool, ty))
     }
 
+    /// Converts this reference into an owned [`MessageDescriptor`].
     pub fn to_owned(self) -> MessageDescriptor {
         MessageDescriptor {
             pool: self.pool.to_owned(),
@@ -482,14 +490,17 @@ impl<'a> MessageDescriptorRef<'a> {
         }
     }
 
+    /// Reference wrapper for [`MessageDescriptor::parent_pool`].
     pub fn parent_pool(&self) -> DescriptorPoolRef<'a> {
         self.pool
     }
 
+    /// Reference wrapper for [`MessageDescriptor::parent_file`].
     pub fn parent_file(&self) -> FileDescriptorRef<'a> {
         FileDescriptorRef::new(self.pool, self.inner().file as _)
     }
 
+    /// Reference wrapper for [`MessageDescriptor::parent_message`].
     pub fn parent_message(&self) -> Option<MessageDescriptorRef<'a>> {
         self.inner()
             .parent
@@ -497,26 +508,32 @@ impl<'a> MessageDescriptorRef<'a> {
             .map(|ty| MessageDescriptorRef::new(self.pool, ty))
     }
 
+    /// Reference wrapper for [`MessageDescriptor::name`].
     pub fn name(&self) -> &'a str {
         parse_name(self.full_name())
     }
 
+    /// Reference wrapper for [`MessageDescriptor::full_name`].
     pub fn full_name(&self) -> &'a str {
         &self.inner().full_name
     }
 
+    /// Reference wrapper for [`MessageDescriptor::package_name`].
     pub fn package_name(&self) -> &'a str {
         self.parent_file_descriptor_proto().package()
     }
 
+    /// Reference wrapper for [`MessageDescriptor::parent_file_descriptor_proto`].
     pub fn parent_file_descriptor_proto(&self) -> &'a FileDescriptorProto {
         self.parent_file().file_descriptor_proto()
     }
 
+    /// Reference wrapper for [`MessageDescriptor::descriptor_proto`].
     pub fn descriptor_proto(&self) -> &'a DescriptorProto {
         find_message_descriptor_proto(self.parent_pool(), self.inner().file, self.index)
     }
 
+    /// Reference wrapper for [`MessageDescriptor::fields`].
     pub fn fields(&self) -> impl ExactSizeIterator<Item = FieldDescriptorRef<'a>> + 'a {
         let this = *self;
         self.inner()
@@ -528,12 +545,14 @@ impl<'a> MessageDescriptorRef<'a> {
             })
     }
 
+    /// Reference wrapper for [`MessageDescriptor::oneofs`].
     pub fn oneofs(&self) -> impl ExactSizeIterator<Item = OneofDescriptorRef<'a>> + 'a {
         let this = *self;
         (0..self.inner().oneof_decls.len())
             .map(move |index| OneofDescriptorRef::new(this, to_index(index)))
     }
 
+    /// Reference wrapper for [`MessageDescriptor::child_messages`].
     pub fn child_messages(&self) -> impl ExactSizeIterator<Item = MessageDescriptorRef<'a>> + 'a {
         let pool = self.parent_pool();
         let namespace = self.full_name();
@@ -544,6 +563,7 @@ impl<'a> MessageDescriptorRef<'a> {
         })
     }
 
+    /// Reference wrapper for [`MessageDescriptor::child_enums`].
     pub fn child_enums(&self) -> impl ExactSizeIterator<Item = EnumDescriptorRef<'a>> + 'a {
         let pool = self.parent_pool();
         let namespace = self.full_name();
@@ -554,6 +574,7 @@ impl<'a> MessageDescriptorRef<'a> {
         })
     }
 
+    /// Reference wrapper for [`MessageDescriptor::child_extensions`].
     pub fn child_extensions(
         &self,
     ) -> impl ExactSizeIterator<Item = ExtensionDescriptorRef<'a>> + 'a {
@@ -572,6 +593,7 @@ impl<'a> MessageDescriptorRef<'a> {
         })
     }
 
+    /// Reference wrapper for [`MessageDescriptor::extensions`].
     pub fn extensions(&self) -> impl ExactSizeIterator<Item = ExtensionDescriptorRef<'a>> + 'a {
         let pool = self.parent_pool();
         self.inner()
@@ -580,6 +602,7 @@ impl<'a> MessageDescriptorRef<'a> {
             .map(move |&index| ExtensionDescriptorRef { pool, index })
     }
 
+    /// Reference wrapper for [`MessageDescriptor::get_field`].
     pub fn get_field(&self, number: u32) -> Option<FieldDescriptorRef<'a>> {
         let this = *self;
         if self.inner().fields.contains_key(&number) {
@@ -592,6 +615,7 @@ impl<'a> MessageDescriptorRef<'a> {
         }
     }
 
+    /// Reference wrapper for [`MessageDescriptor::get_field_by_name`].
     pub fn get_field_by_name(&self, name: &str) -> Option<FieldDescriptorRef<'a>> {
         let this = *self;
         self.inner()
@@ -603,6 +627,7 @@ impl<'a> MessageDescriptorRef<'a> {
             })
     }
 
+    /// Reference wrapper for [`MessageDescriptor::get_field_by_json_name`].
     pub fn get_field_by_json_name(&self, json_name: &str) -> Option<FieldDescriptorRef<'a>> {
         let this = *self;
         self.inner()
@@ -614,22 +639,26 @@ impl<'a> MessageDescriptorRef<'a> {
             })
     }
 
+    /// Reference wrapper for [`MessageDescriptor::is_map_entry`].
     pub fn is_map_entry(&self) -> bool {
         self.inner().is_map_entry
     }
 
+    /// Reference wrapper for [`MessageDescriptor::map_entry_key_field`].
     pub fn map_entry_key_field(&self) -> FieldDescriptorRef<'a> {
         debug_assert!(self.is_map_entry());
         self.get_field(MAP_ENTRY_KEY_NUMBER)
             .expect("map entry should have key field")
     }
 
+    /// Reference wrapper for [`MessageDescriptor::map_entry_value_field`].
     pub fn map_entry_value_field(&self) -> FieldDescriptorRef<'a> {
         debug_assert!(self.is_map_entry());
         self.get_field(MAP_ENTRY_VALUE_NUMBER)
             .expect("map entry should have key field")
     }
 
+    /// Reference wrapper for [`MessageDescriptor::reserved_ranges`].
     pub fn reserved_ranges(&self) -> impl ExactSizeIterator<Item = Range<u32>> + 'a {
         self.descriptor_proto()
             .reserved_range
@@ -637,6 +666,7 @@ impl<'a> MessageDescriptorRef<'a> {
             .map(|n| (n.start() as u32)..(n.end() as u32))
     }
 
+    /// Reference wrapper for [`MessageDescriptor::reserved_names`].
     pub fn reserved_names(&self) -> impl ExactSizeIterator<Item = &'a str> + 'a {
         self.descriptor_proto()
             .reserved_name
@@ -644,6 +674,7 @@ impl<'a> MessageDescriptorRef<'a> {
             .map(|n| n.as_ref())
     }
 
+    /// Reference wrapper for [`MessageDescriptor::extension_ranges`].
     pub fn extension_ranges(&self) -> impl ExactSizeIterator<Item = Range<u32>> + 'a {
         self.descriptor_proto()
             .extension_range
@@ -651,10 +682,12 @@ impl<'a> MessageDescriptorRef<'a> {
             .map(|n| (n.start() as u32)..(n.end() as u32))
     }
 
+    /// Reference wrapper for [`MessageDescriptor::get_extension`].
     pub fn get_extension(&self, number: u32) -> Option<ExtensionDescriptorRef<'a>> {
         self.extensions().find(|ext| ext.number() == number)
     }
 
+    /// Reference wrapper for [`MessageDescriptor::get_extension_by_json_name`].
     pub fn get_extension_by_json_name(&self, name: &str) -> Option<ExtensionDescriptorRef<'a>> {
         self.extensions().find(|ext| ext.json_name() == name)
     }
@@ -683,7 +716,7 @@ impl<'a> fmt::Debug for MessageDescriptorRef<'a> {
 }
 
 impl FieldDescriptor {
-    /// Gets a [`FieldDescriptorRef`] referencing this method.
+    /// Gets a [`FieldDescriptorRef`] referencing this field.
     pub fn as_ref(&self) -> FieldDescriptorRef<'_> {
         FieldDescriptorRef {
             message: self.message.as_ref(),
@@ -791,6 +824,7 @@ impl FieldDescriptor {
 }
 
 impl<'a> FieldDescriptorRef<'a> {
+    /// Converts this reference into an owned [`FieldDescriptor`].
     pub fn to_owned(self) -> FieldDescriptor {
         FieldDescriptor {
             message: self.message.to_owned(),
@@ -798,26 +832,32 @@ impl<'a> FieldDescriptorRef<'a> {
         }
     }
 
+    /// Reference wrapper for [`FieldDescriptor::parent_pool`].
     pub fn parent_pool(&self) -> DescriptorPoolRef<'a> {
         self.message.parent_pool()
     }
 
+    /// Reference wrapper for [`FieldDescriptor::parent_file`].
     pub fn parent_file(&self) -> FileDescriptorRef<'a> {
         self.message.parent_file()
     }
 
+    /// Reference wrapper for [`FieldDescriptor::parent_message`].
     pub fn parent_message(&self) -> MessageDescriptorRef<'a> {
         self.message
     }
 
+    /// Reference wrapper for [`FieldDescriptor::name`].
     pub fn name(&self) -> &'a str {
         &self.inner().name
     }
 
+    /// Reference wrapper for [`FieldDescriptor::full_name`].
     pub fn full_name(&self) -> &'a str {
         &self.inner().full_name
     }
 
+    /// Reference wrapper for [`FieldDescriptor::field_descriptor_proto`].
     pub fn field_descriptor_proto(&self) -> &'a FieldDescriptorProto {
         self.parent_message()
             .descriptor_proto()
@@ -827,22 +867,27 @@ impl<'a> FieldDescriptorRef<'a> {
             .expect("field not found")
     }
 
+    /// Reference wrapper for [`FieldDescriptor::number`].
     pub fn number(&self) -> u32 {
         self.field
     }
 
+    /// Reference wrapper for [`FieldDescriptor::json_name`].
     pub fn json_name(&self) -> &'a str {
         &self.inner().json_name
     }
 
+    /// Reference wrapper for [`FieldDescriptor::is_group`].
     pub fn is_group(&self) -> bool {
         self.inner().is_group
     }
 
+    /// Reference wrapper for [`FieldDescriptor::is_list`].
     pub fn is_list(&self) -> bool {
         self.cardinality() == Cardinality::Repeated && !self.is_map()
     }
 
+    /// Reference wrapper for [`FieldDescriptor::is_map`].
     pub fn is_map(&self) -> bool {
         self.cardinality() == Cardinality::Repeated
             && match self.kind() {
@@ -851,22 +896,27 @@ impl<'a> FieldDescriptorRef<'a> {
             }
     }
 
+    /// Reference wrapper for [`FieldDescriptor::is_packed`].
     pub fn is_packed(&self) -> bool {
         self.inner().is_packed
     }
 
+    /// Reference wrapper for [`FieldDescriptor::cardinality`].
     pub fn cardinality(&self) -> Cardinality {
         self.inner().cardinality
     }
 
+    /// Reference wrapper for [`FieldDescriptor::supports_presence`].
     pub fn supports_presence(&self) -> bool {
         self.inner().supports_presence
     }
 
+    /// Reference wrapper for [`FieldDescriptor::kind`].
     pub fn kind(&self) -> KindRef<'a> {
         self.inner().ty.to_kind(self.message.pool)
     }
 
+    /// Reference wrapper for [`FieldDescriptor::containing_oneof`].
     pub fn containing_oneof(&self) -> Option<OneofDescriptorRef<'a>> {
         self.inner()
             .oneof_index
@@ -1037,6 +1087,7 @@ impl ExtensionDescriptor {
 }
 
 impl<'a> ExtensionDescriptorRef<'a> {
+    /// Converts this reference into an owned [`ExtensionDescriptor`].
     pub fn to_owned(self) -> ExtensionDescriptor {
         ExtensionDescriptor {
             pool: self.pool.to_owned(),
@@ -1056,14 +1107,17 @@ impl<'a> ExtensionDescriptorRef<'a> {
             })
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::parent_pool`].
     pub fn parent_pool(&self) -> DescriptorPoolRef<'a> {
         self.pool
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::parent_file`].
     pub fn parent_file(&self) -> FileDescriptorRef<'a> {
         FileDescriptorRef::new(self.pool, self.inner().file as _)
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::parent_message`].
     pub fn parent_message(&self) -> Option<MessageDescriptorRef<'a>> {
         self.inner()
             .parent
@@ -1071,22 +1125,27 @@ impl<'a> ExtensionDescriptorRef<'a> {
             .map(|ty| MessageDescriptorRef::new(self.pool, ty))
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::name`].
     pub fn name(&self) -> &'a str {
         &self.field_inner().name
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::full_name`].
     pub fn full_name(&self) -> &'a str {
         &self.field_inner().full_name
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::package_name`].
     pub fn package_name(&self) -> &'a str {
         self.parent_file_descriptor_proto().package()
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::parent_file_descriptor_proto`].
     pub fn parent_file_descriptor_proto(&self) -> &'a FileDescriptorProto {
         get_file_descriptor_proto(self.pool, self.inner().file)
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::field_descriptor_proto`].
     pub fn field_descriptor_proto(&self) -> &'a FieldDescriptorProto {
         let name = self.name();
         let inner = self.inner();
@@ -1106,22 +1165,27 @@ impl<'a> ExtensionDescriptorRef<'a> {
         }
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::number`].
     pub fn number(&self) -> u32 {
         self.inner().number
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::json_name`].
     pub fn json_name(&self) -> &'a str {
         &self.inner().json_name
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::is_group`].
     pub fn is_group(&self) -> bool {
         self.field_inner().is_group
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::is_list`].
     pub fn is_list(&self) -> bool {
         self.cardinality() == Cardinality::Repeated && !self.is_map()
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::is_map`].
     pub fn is_map(&self) -> bool {
         self.cardinality() == Cardinality::Repeated
             && match self.kind() {
@@ -1130,22 +1194,27 @@ impl<'a> ExtensionDescriptorRef<'a> {
             }
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::is_packed`].
     pub fn is_packed(&self) -> bool {
         self.field_inner().is_packed
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::cardinality`].
     pub fn cardinality(&self) -> Cardinality {
         self.field_inner().cardinality
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::supports_presence`].
     pub fn supports_presence(&self) -> bool {
         self.field_inner().supports_presence
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::kind`].
     pub fn kind(&self) -> KindRef<'a> {
         self.field_inner().ty.to_kind(self.pool)
     }
 
+    /// Reference wrapper for [`ExtensionDescriptor::containing_message`].
     pub fn containing_message(&self) -> MessageDescriptorRef<'a> {
         MessageDescriptorRef::new(self.pool, self.inner().extendee)
     }
@@ -1240,6 +1309,7 @@ impl Kind {
 }
 
 impl<'a> KindRef<'a> {
+    /// Converts this reference into an owned [`Kind`].
     pub fn to_owned(self) -> Kind {
         match self {
             KindRef::Double => Kind::Double,
@@ -1262,6 +1332,8 @@ impl<'a> KindRef<'a> {
         }
     }
 
+    /// Gets a reference to the [`MessageDescriptorRef`] if this is a message type,
+    /// or `None` otherwise.
     pub fn as_message(&self) -> Option<MessageDescriptorRef<'_>> {
         match self {
             KindRef::Message(desc) => Some(*desc),
@@ -1269,6 +1341,8 @@ impl<'a> KindRef<'a> {
         }
     }
 
+    /// Gets a reference to the [`EnumDescriptorRef`] if this is an enum type,
+    /// or `None` otherwise.
     pub fn as_enum(&self) -> Option<EnumDescriptorRef<'_>> {
         match self {
             KindRef::Enum(desc) => Some(*desc),
@@ -1415,6 +1489,7 @@ impl EnumDescriptor {
 }
 
 impl<'a> EnumDescriptorRef<'a> {
+    /// Converts this reference into an owned [`EnumDescriptor`].
     pub fn to_owned(self) -> EnumDescriptor {
         EnumDescriptor {
             pool: self.pool.to_owned(),
@@ -1447,14 +1522,17 @@ impl<'a> EnumDescriptorRef<'a> {
         Some(EnumDescriptorRef::new(pool, ty))
     }
 
+    /// Reference wrapper for [`EnumDescriptor::parent_pool`].
     pub fn parent_pool(&self) -> DescriptorPoolRef<'a> {
         self.pool
     }
 
+    /// Reference wrapper for [`EnumDescriptor::parent_file`].
     pub fn parent_file(&self) -> FileDescriptorRef<'a> {
         FileDescriptorRef::new(self.pool, self.inner().file as _)
     }
 
+    /// Reference wrapper for [`EnumDescriptor::parent_message`].
     pub fn parent_message(&self) -> Option<MessageDescriptorRef<'a>> {
         self.inner()
             .parent
@@ -1462,22 +1540,27 @@ impl<'a> EnumDescriptorRef<'a> {
             .map(|ty| MessageDescriptorRef::new(self.pool, ty))
     }
 
+    /// Reference wrapper for [`EnumDescriptor::name`].
     pub fn name(&self) -> &'a str {
         parse_name(self.full_name())
     }
 
+    /// Reference wrapper for [`EnumDescriptor::full_name`].
     pub fn full_name(&self) -> &'a str {
         &self.inner().full_name
     }
 
+    /// Reference wrapper for [`EnumDescriptor::package_name`].
     pub fn package_name(&self) -> &'a str {
         self.parent_file_descriptor_proto().package()
     }
 
+    /// Reference wrapper for [`EnumDescriptor::parent_file_descriptor_proto`].
     pub fn parent_file_descriptor_proto(&self) -> &'a FileDescriptorProto {
         get_file_descriptor_proto(self.pool, self.inner().file)
     }
 
+    /// Reference wrapper for [`EnumDescriptor::enum_descriptor_proto`].
     pub fn enum_descriptor_proto(&self) -> &'a EnumDescriptorProto {
         let name = self.name();
         let inner = self.inner();
@@ -1497,6 +1580,7 @@ impl<'a> EnumDescriptorRef<'a> {
         }
     }
 
+    /// Reference wrapper for [`EnumDescriptor::default_value`].
     pub fn default_value(&self) -> EnumValueDescriptorRef<'a> {
         EnumValueDescriptorRef {
             parent: *self,
@@ -1504,6 +1588,7 @@ impl<'a> EnumDescriptorRef<'a> {
         }
     }
 
+    /// Reference wrapper for [`EnumDescriptor::get_value_by_name`].
     pub fn get_value_by_name(&self, name: &str) -> Option<EnumValueDescriptorRef<'a>> {
         self.inner()
             .value_names
@@ -1514,6 +1599,7 @@ impl<'a> EnumDescriptorRef<'a> {
             })
     }
 
+    /// Reference wrapper for [`EnumDescriptor::get_value`].
     pub fn get_value(&self, number: i32) -> Option<EnumValueDescriptorRef<'a>> {
         match self
             .inner()
@@ -1525,12 +1611,14 @@ impl<'a> EnumDescriptorRef<'a> {
         }
     }
 
+    /// Reference wrapper for [`EnumDescriptor::values`].
     pub fn values(&self) -> impl ExactSizeIterator<Item = EnumValueDescriptorRef<'a>> + 'a {
         let this = *self;
         (0..self.inner().values.len())
             .map(move |index| EnumValueDescriptorRef::new(this, to_index(index)))
     }
 
+    /// Reference wrapper for [`EnumDescriptor::reserved_ranges`].
     pub fn reserved_ranges(&self) -> impl ExactSizeIterator<Item = RangeInclusive<i32>> + 'a {
         self.enum_descriptor_proto()
             .reserved_range
@@ -1538,6 +1626,7 @@ impl<'a> EnumDescriptorRef<'a> {
             .map(|n| n.start()..=n.end())
     }
 
+    /// Reference wrapper for [`EnumDescriptor::reserved_names`].
     pub fn reserved_names(&self) -> impl ExactSizeIterator<Item = &'a str> + 'a {
         self.enum_descriptor_proto()
             .reserved_name
@@ -1617,6 +1706,7 @@ impl<'a> EnumValueDescriptorRef<'a> {
         EnumValueDescriptorRef { parent, index }
     }
 
+    /// Converts this reference into an owned [`EnumValueDescriptor`].
     pub fn to_owned(self) -> EnumValueDescriptor {
         EnumValueDescriptor {
             parent: self.parent.to_owned(),
@@ -1624,26 +1714,32 @@ impl<'a> EnumValueDescriptorRef<'a> {
         }
     }
 
+    /// Reference wrapper for [`EnumValueDescriptor::parent_pool`].
     pub fn parent_pool(&self) -> DescriptorPoolRef<'a> {
         self.parent.parent_pool()
     }
 
+    /// Reference wrapper for [`EnumValueDescriptor::parent_file`].
     pub fn parent_file(&self) -> FileDescriptorRef<'a> {
         self.parent.parent_file()
     }
 
+    /// Reference wrapper for [`EnumValueDescriptor::parent_enum`].
     pub fn parent_enum(&self) -> EnumDescriptorRef<'a> {
         self.parent
     }
 
+    /// Reference wrapper for [`EnumValueDescriptor::name`].
     pub fn name(&self) -> &'a str {
         &self.enum_value_ty().name
     }
 
+    /// Reference wrapper for [`EnumValueDescriptor::full_name`].
     pub fn full_name(&self) -> &'a str {
         &self.enum_value_ty().full_name
     }
 
+    /// Reference wrapper for [`EnumValueDescriptor::enum_value_descriptor_proto`].
     pub fn enum_value_descriptor_proto(&self) -> &'a EnumValueDescriptorProto {
         self.parent_enum()
             .enum_descriptor_proto()
@@ -1653,6 +1749,7 @@ impl<'a> EnumValueDescriptorRef<'a> {
             .expect("enum value not found")
     }
 
+    /// Reference wrapper for [`EnumValueDescriptor::number`].
     pub fn number(&self) -> i32 {
         self.enum_value_ty().number
     }
@@ -1728,6 +1825,7 @@ impl<'a> OneofDescriptorRef<'a> {
         OneofDescriptorRef { message, index }
     }
 
+    /// Converts this reference into an owned [`OneofDescriptor`].
     pub fn to_owned(self) -> OneofDescriptor {
         OneofDescriptor {
             message: self.message.to_owned(),
@@ -1735,30 +1833,37 @@ impl<'a> OneofDescriptorRef<'a> {
         }
     }
 
+    /// Reference wrapper for [`OneofDescriptor::parent_pool`].
     pub fn parent_pool(&self) -> DescriptorPoolRef<'a> {
         self.message.parent_pool()
     }
 
+    /// Reference wrapper for [`OneofDescriptor::parent_file`].
     pub fn parent_file(&self) -> FileDescriptorRef<'a> {
         self.message.parent_file()
     }
 
+    /// Reference wrapper for [`OneofDescriptor::parent_message`].
     pub fn parent_message(&self) -> MessageDescriptorRef<'a> {
         self.message
     }
 
+    /// Reference wrapper for [`OneofDescriptor::name`].
     pub fn name(&self) -> &'a str {
         &self.oneof_ty().name
     }
 
+    /// Reference wrapper for [`OneofDescriptor::full_name`].
     pub fn full_name(&self) -> &'a str {
         &self.oneof_ty().full_name
     }
 
+    /// Reference wrapper for [`OneofDescriptor::oneof_descriptor_proto`].
     pub fn oneof_descriptor_proto(&self) -> &'a OneofDescriptorProto {
         &self.parent_message().descriptor_proto().oneof_decl[self.index as usize]
     }
 
+    /// Reference wrapper for [`OneofDescriptor::fields`].
     pub fn fields(&self) -> impl ExactSizeIterator<Item = FieldDescriptorRef<'a>> + 'a {
         let message = self.message;
         self.oneof_ty()
