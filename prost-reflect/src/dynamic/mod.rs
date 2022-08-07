@@ -3,6 +3,8 @@ mod fmt;
 mod message;
 #[cfg(feature = "serde")]
 mod serde;
+#[cfg(feature = "text_format")]
+mod text_format;
 mod unknown;
 
 use std::{borrow::Cow, collections::HashMap};
