@@ -20,6 +20,7 @@ serde = ["serde1", "base64", "serde-value", "time"]
 reflect-well-known-types = ["once_cell", "prost-build"]
 
 [dependencies]
+indexmap = "1.9.1"
 base64 = { version = "0.13.0", optional = true }
 once_cell = { version = "1.9.0", optional = true }
 prost = "0.10.0"

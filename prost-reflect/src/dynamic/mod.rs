@@ -4,7 +4,8 @@ mod message;
 mod serde;
 mod unknown;
 
-use std::{borrow::Cow, collections::HashMap};
+use indexmap::IndexMap;
+use std::borrow::Cow;
 
 #[cfg(feature = "serde")]
 pub use self::serde::{DeserializeOptions, SerializeOptions};
@@ -60,7 +61,7 @@ pub enum Value {
     /// A list of values, encoded as a protobuf repeated field.
     List(Vec<Value>),
     /// A map of values, encoded as a protobuf map field.
-    Map(HashMap<MapKey, Value>),
+    Map(IndexMap<MapKey, Value>),
 }
 
 /// A dynamically-typed key for a protobuf map.
@@ -337,7 +338,7 @@ impl Value {
         if field_desc.is_list() {
             Value::List(Vec::default())
         } else if field_desc.is_map() {
-            Value::Map(HashMap::default())
+            Value::Map(IndexMap::default())
         } else if let Some(default_value) = field_desc.default_value() {
             default_value.clone()
         } else {
@@ -352,7 +353,7 @@ impl Value {
         if extension_desc.is_list() {
             Value::List(Vec::default())
         } else if extension_desc.is_map() {
-            Value::Map(HashMap::default())
+            Value::Map(IndexMap::default())
         } else if let Some(default_value) = extension_desc.default_value() {
             default_value.clone()
         } else {
@@ -648,7 +649,7 @@ impl Value {
     }
 
     /// Returns a a reference to the value if it is a `Value::Map`, or `None` if it is any other type.
-    pub fn as_map(&self) -> Option<&HashMap<MapKey, Value>> {
+    pub fn as_map(&self) -> Option<&IndexMap<MapKey, Value>> {
         match self {
             Value::Map(value) => Some(value),
             _ => None,
@@ -656,7 +657,7 @@ impl Value {
     }
 
     /// Returns a mutable reference to the value if it is a `Value::Map`, or `None` if it is any other type.
-    pub fn as_map_mut(&mut self) -> Option<&mut HashMap<MapKey, Value>> {
+    pub fn as_map_mut(&mut self) -> Option<&mut IndexMap<MapKey, Value>> {
         match self {
             Value::Map(value) => Some(value),
             _ => None,
